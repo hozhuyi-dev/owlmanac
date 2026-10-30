@@ -1,0 +1,22 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { url } from "@/lib/url";
+---
+
+<BaseLayout title="Not found">
+  <section class="container page">
+    <h1>Hoo? Nothing here.</h1>
+    <p>This page doesn't exist, or it flew off. <a href={url()}>Back to the posts</a>.</p>
+  </section>
+</BaseLayout>
+
+<style>
+  .page {
+    padding-top: var(--page-top);
+  }
+
+  h1 {
+    font-size: clamp(1.875rem, 1.25rem + 2.5vw, 2.5rem);
+    font-weight: 700;
+  }
+</style>

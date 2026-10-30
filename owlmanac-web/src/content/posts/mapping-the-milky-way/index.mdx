@@ -1,0 +1,291 @@
+---
+title: "Mapping the Milky Way"
+description: "A recent star gazing at Taiwan Hehuanshan sparked the curiosity to explore and understand the structure of the Milky Way."
+pubDate: 2025-11-05
+updatedDate: 2026-10-30
+tags: ["Data Analysis", "Astronomy"]
+cover: ./cover.jpg
+coverAlt: "The Milky Way Galaxy in the night sky"
+coverCredit: "Viktar—iStock/Getty Images"
+---
+
+import Figure from "@/components/Figure.astro";
+import GlimpseCenter from "./GlimpseCenter.vue";
+import SkyDensityMap from "./SkyDensityMap.vue";
+import PlaneDensityMap from "./PlaneDensityMap.vue";
+import glimpse from "./data/glimpse.parquet?url";
+import healpix from "./data/healpix-density.parquet?url";
+import plane from "./data/plane-density.parquet?url";
+
+## Introduction
+
+In April 2025, during our honeymoon trip to Hehuanshan, Taiwan, my wife and I had the rare chance to see a truly dark sky. The air was thin and cold, but above us stretched a dome of stars — sharp, steady, and countless. Constellations like Leo and Virgo were easy to spot, their bright stars marking the arrival of the spring sky.
+
+But one feature was missing: the Milky Way. April isn't the right season for its bright galactic core, which stays hidden below the horizon. Standing there, I wondered what the galaxy would look like if we could see all of it — every star, in every direction, mapped precisely.
+
+This post turns that question into a data-driven exploration using Gaia Data Release 3 (DR3). By querying and processing Gaia's precise astrometric measurements, we can reconstruct how the Milky Way appears from our vantage point. Through Python tools like Polars and Astropy, the analysis filters high-quality stars, aggregates billions of observations into sky maps, and visualizes the galaxy's disk, bulge, and plane — mapping the Milky Way.
+
+To do this, I use Python and several powerful scientific libraries:
+
+- Polars for efficient, lightning-fast data manipulation,
+- Astropy for astronomical coordinate transformations, and
+- astroquery.Gaia to directly query the Gaia archive.
+
+The charts are drawn in your browser with Observable Plot, from the same data queried with DuckDB-WASM, so you can hover over them and explore.
+
+## Processing Gaia DR3 Data
+
+Before visualizing the Milky Way, the first step is to get familiar with the Gaia DR3 dataset itself. Gaia, operated by the European Space Agency, continuously measures the positions, brightness, and motions of more than 1.4 billion stars with extraordinary precision. Each record is a snapshot of where a star is and how it moves through space — together forming a detailed map of our galaxy.
+
+The Gaia archive provides several ways to access its vast dataset, depending on the scope and complexity of your query. The simplest is the query object, which retrieves a small, predefined subset of data — useful for quick testing or exploring a few sources by their identifiers. The cone search method is designed for spatial queries: you specify a point on the sky and a radius, and Gaia returns all sources within that circular region. For larger or more complex queries, we use launch_job, which submits a custom query written in ADQL (Astronomical Data Query Language) — a dialect closely resembling SQL, but tailored for astronomical datasets with coordinate-based operations.
+
+Because the Gaia catalog contains more than a billion records, most queries are executed asynchronously on the archive's servers. This means that instead of waiting for the results immediately, the query is submitted, processed in the background, and the results become available once the computation finishes. This server-side processing ensures that even complex or large-scale queries can run efficiently without timing out, allowing astronomers to explore the Milky Way systematically — one region or subset of stars at a time.
+
+### First Glimpse of the Milky Way
+
+To begin, I focused on a small region near the galactic center, where the Milky Way appears most densely packed. Using `astroquery.Gaia.query_object_async`, the script retrieves all sources within a narrow 0.2° × 0.2° patch centered at (RA = 266.4°, Dec = −29°) — roughly the direction of Sagittarius A\*, our galaxy's core. The data is then converted into a Polars DataFrame for quick inspection and plotting.
+
+Each point in the chart below represents a single star, positioned by its right ascension and declination. The marker size and color correspond to relative brightness (derived from Gaia's `phot_g_mean_mag`), giving a visual sense of how stellar density and brightness cluster toward the galactic center. Drag the slider to hide fainter stars: each change runs a SQL query over the data in your browser.
+
+<Figure caption="Relative brightness (21 − G) of stars when looking towards the center of the Milky Way.">
+  <GlimpseCenter client:visible src={glimpse} ra={266.4} dec={-29} width={0.2} />
+</Figure>
+
+Even in this small region, the richness of Gaia's data is striking — thousands of stars resolved in just a fraction of a degree. This first glimpse highlights both the precision of Gaia's measurements and the scale of the dataset that underpins the larger Milky Way map.
+
+### Exploring the Data
+
+Before narrowing down to high-quality stars, it helps to take a broader look at the Gaia DR3 dataset, which contains an impressive 153 columns of measured and derived quantities for each star. To make sense of such a rich catalog, it's useful to group these columns logically.
+
+#### Source Identification & Metadata
+
+These identify the star or source and give context for the observation.
+
+| Column | Meaning |
+| --- | --- |
+| `solution_id`, `designation`, `source_id` | Unique identifiers for each Gaia source and the data-processing version used. |
+| `random_index` | Random index number for internal or sampling purposes. |
+| `ref_epoch` | The reference time (in Julian years) when positions like RA/Dec and proper motion are defined. |
+| `duplicated_source` | True if multiple detections were merged. |
+| `has_*` | Indicate availability of detailed Gaia data products (XP spectra, epoch data, etc.). |
+| `in_andromeda_survey` | Flag if the source is part of the special Andromeda survey. |
+
+#### Position in the Sky (Astrometry, Derived Coordinates and Kinematics)
+
+These describe where the star appears on the sky, how it moves, and how precisely Gaia measured it.
+
+| Column | Meaning |
+| --- | --- |
+| `ra`, `dec` | Right Ascension and Declination — the celestial coordinates (like longitude/latitude in the sky). |
+| `ra_error`, `dec_error` | Uncertainty in those positions. |
+| `parallax` | Apparent annual shift due to Earth's orbit — used to measure **distance**. |
+| `parallax_error`, `parallax_over_error` | Uncertainty and reliability of parallax. |
+| `pmra`, `pmdec` | Proper motion — how fast the star moves across the sky in RA and Dec directions. |
+| `pmra_error`, `pmdec_error` | Uncertainties in proper motion. |
+| `pm` | Total proper motion (magnitude combining pmra and pmdec). |
+| `dist` | Distance estimate (sometimes computed externally from parallax). |
+| `l`, `b` | Galactic longitude and latitude. |
+| `ecl_lon`, `ecl_lat` | Ecliptic coordinates (relative to the plane of the solar system). |
+| `radial_velocity`, `radial_velocity_error` | Star's line-of-sight velocity and its uncertainty. |
+| `rv_method_used`, `rv_nb_transits`, `rv_visibility_periods_used` | Info about how and how often the velocity was measured. |
+| `rv_expected_sig_to_noise`, `rv_renormalised_gof`, `rv_chisq_pvalue` | Quality metrics for the radial velocity fit. |
+| `rv_time_duration`, `rv_amplitude_robust` | Duration and variability of radial velocity data. |
+| `rv_template_teff`, `rv_template_logg`, `rv_template_fe_h` | Stellar model parameters used for cross-correlation templates. |
+| `vbroad`, `vbroad_error` | Projected rotational velocity (how fast the star spins). |
+| `grvs_mag`, `grvs_mag_error` | Brightness in Gaia's spectroscopic RVS band. |
+| `rvs_spec_sig_to_noise` | Signal-to-noise ratio of the spectrum. |
+
+#### Astrometric Correlations & Quality Statistics
+
+These describe the fit quality of Gaia's astrometric model — how confident we are in the measurements.
+
+| Column | Meaning |
+| --- | --- |
+| `ra_dec_corr`, `ra_parallax_corr`, `ra_pmra_corr`, ... | Correlations between measurement errors — how one uncertainty affects another. |
+| `astrometric_n_obs_al`, `astrometric_n_obs_ac` | Number of observations along/across Gaia's scan direction. |
+| `astrometric_n_good_obs_al`, `astrometric_n_bad_obs_al` | Count of good/bad observations used in the solution. |
+| `astrometric_gof_al`, `astrometric_chi2_al` | "Goodness of fit" statistics — lower values indicate a cleaner astrometric solution. |
+| `astrometric_excess_noise`, `astrometric_excess_noise_sig` | Extra "jitter" needed to fit the data — large values mean potentially unresolved binaries or issues. |
+| `astrometric_params_solved` | Which astrometric parameters were actually solved (e.g. full 5-parameter fit). |
+| `astrometric_primary_flag` | Whether the source was part of the primary astrometric solution. |
+| `nu_eff_used_in_astrometry`, `pseudocolour`, `pseudocolour_error` | Indicators of the color used for astrometric calibration. |
+| `astrometric_matched_transits`, `visibility_periods_used` | How many times the star was seen at different times/directions. |
+| `astrometric_sigma5d_max` | Maximum uncertainty in the 5D astrometric solution. |
+| `ruwe` | *Renormalised Unit Weight Error* — a key quality indicator (values > 1.4 often mean poor fit). |
+
+#### Image Parameter Determination (IPD) & Scan Geometry
+
+These describe how the star's light was analyzed in Gaia's CCD images.
+
+| Column | Meaning |
+| --- | --- |
+| `ipd_gof_harmonic_amplitude`, `ipd_gof_harmonic_phase` | Measure periodic residuals in image fits (could indicate binarity or extended sources). |
+| `ipd_frac_multi_peak`, `ipd_frac_odd_win` | Fraction of ambiguous or problematic detections. |
+| `scan_direction_strength_k*`, `scan_direction_mean_k*` | Describe how Gaia's scan directions sampled this source (affects astrometric precision). |
+
+#### Photometry (Brightness in Different Bands)
+
+Gaia measures brightness in several wavelength bands: G (broad), BP (blue), RP (red). BP (Blue Photometer) covers ~330–680 nm, RP (Red Photometer) covers ~630–1050 nm, and the G band is broad (330–1050 nm).
+
+| Column | Meaning |
+| --- | --- |
+| `phot_g_mean_flux`, `phot_bp_mean_flux`, `phot_rp_mean_flux` | Average detected light in each band. |
+| `phot_g_mean_mag`, `phot_bp_mean_mag`, `phot_rp_mean_mag` | Converted magnitudes (brightness scale). |
+| `phot_*_flux_error`, `phot_*_flux_over_error` | Measurement errors and quality. |
+| `phot_*_n_obs` | Number of transits (observations) per band. |
+| `phot_bp_rp_excess_factor` | Ratio of BP+RP flux to G — high values suggest contamination or extended sources. |
+| `bp_rp`, `bp_g`, `g_rp` | Color indices — differences in magnitude between bands, used to estimate temperature. |
+
+#### Source Classification & Variability
+
+These flag whether Gaia thinks the source is a galaxy, quasar, or variable star.
+
+| Column | Meaning |
+| --- | --- |
+| `phot_variable_flag` | Indicates if brightness changes over time. |
+| `in_qso_candidates`, `in_galaxy_candidates`, `non_single_star` | Flags for quasars, galaxies, or multiple-star systems. |
+| `classprob_dsc_combmod_*` | Probabilities from Gaia's classifier (e.g. how likely it's a star, galaxy, or quasar). |
+
+#### Astrophysical Parameters (from GSP-Phot)
+
+Derived from Gaia's photometry and models — describing physical properties of the star.
+
+| Column | Meaning |
+| --- | --- |
+| `teff_gspphot` | Effective temperature (Kelvin). |
+| `logg_gspphot` | Surface gravity (logarithmic, in cgs units). |
+| `mh_gspphot` | Metallicity (iron content relative to Sun). |
+| `distance_gspphot` | Model-based distance estimate. |
+| `azero_gspphot`, `ag_gspphot`, `ebpminrp_gspphot` | Measures of interstellar dust extinction/reddening. |
+| `libname_gspphot` | Model library used to derive parameters. |
+
+### Selecting High-Quality Gaia DR3 Stars
+
+A key quality indicator is the Renormalised Unit Weight Error (RUWE), which measures how well each star's motion fits Gaia's astrometric model. Low RUWE values indicate consistent, well-behaved fits, while higher values often correspond to unresolved binaries, crowded regions, or calibration issues.
+
+- RUWE ≈ 1 → clean, reliable fit
+- RUWE > 1.4 → possible astrometric anomalies
+
+For this analysis, I apply only the RUWE filter, keeping all sources with RUWE ≤ 1.4. This approach preserves nearly the entire 1.4 billion-star catalog while ensuring that the dataset reflects the most trustworthy astrometric solutions.
+
+```sql
+SELECT COUNT(*) FROM gaiadr3.gaia_source;                  -- 1,811,709,771
+SELECT COUNT(*) FROM gaiadr3.gaia_source WHERE ruwe <= 1.4; -- 1,403,242,590
+```
+
+### Aggregating Gaia Data
+
+#### Mapping the Whole Sky with HEALPix
+
+HEALPix (Hierarchical Equal Area isoLatitude Pixelization) is a mathematical way of dividing the entire sky into equal-area "pixels." The total number of cells is given by N<sub>pix</sub> = 12 × 4<sup>order</sup>.
+
+- At order 0, the sky is split into 12 base cells.
+- Each higher order subdivides every cell into 4 smaller ones.
+- So order 4 → 3072 pixels, each about 3.7° across.
+
+This grid is widely used in astronomy because each pixel covers the same solid angle, making it ideal for statistical or density maps of the sky.
+
+Order 4 provides a good balance between spatial detail and data size — 3072 points are light enough to visualize interactively in a browser, while finer orders (like 6 or 7) can yield tens of thousands of rows, which start to slow down interactive charts.
+
+Instead of downloading billions of stars, Gaia allows us to compute these aggregates on the server itself. We can use the function `GAIA_HEALPIX_INDEX(order, source_id)` to assign every source to a HEALPix cell, then group by that cell:
+
+```sql
+SELECT GAIA_HEALPIX_INDEX(4, source_id) AS healpix_4, COUNT(*) AS star_count
+FROM gaiadr3.gaia_source
+WHERE ruwe <= 1.4
+GROUP BY healpix_4
+```
+
+Once the data are aggregated, we can plot them using an Equal Earth projection, which is well suited for full-sky visualizations.
+
+#### Mapping the Milky Way Plane with Coordinate Bins
+
+While HEALPix is ideal for full-sky visualizations, sometimes we only want to look at the Milky Way as seen along its Galactic plane. In this case, we can plot stars directly in Galactic coordinates — longitude (l) and latitude (b) — without needing a spherical projection.
+
+Most stars in the Milky Way lie within about ±10° of the Galactic plane (b = 0°). By focusing on this narrow band, we can create a 2D density map showing the structure of the disk — spiral arms, bulge, and other features — as a heatmap.
+
+Because we're now plotting on a flat grid rather than the full sphere, we don't use HEALPix. Instead, we divide the Galactic coordinates into regular bins (rectangular pixels). The goal is to keep the number of bins small (≤ 5000) so the data remains lightweight for the browser.
+
+On the Gaia server, we can use simple arithmetic with `FLOOR()` in ADQL to group stars into these bins.
+
+Unlike the Equal Earth map, which wraps the entire sky, this Cartesian view provides a more intuitive "top-down slice" of our Galaxy's disk.
+
+## The Milky Way
+
+With the data prepared and high-quality stars selected, we can now turn to the main goal: mapping the Milky Way itself. This section uses the filtered Gaia DR3 dataset (RUWE ≤ 1.4) to visualize the large-scale structure of our galaxy — from the full-sky stellar density to the flattened view of the galactic disk.
+
+By combining Gaia's precise measurements with HEALPix aggregation and coordinate binning, we can trace the Milky Way's stellar distribution and reveal the disk, bulge, and plane that define its familiar form.
+
+### Stellar Density Across the Sky
+
+We begin by examining how Gaia's stars are distributed across the entire sky using HEALPix level 4, which divides the celestial sphere into 3072 equal-area pixels — each covering roughly 3.7° of sky.
+
+For each pixel, Gaia's server aggregates the total number of stars, which we color on a logarithmic scale. Plotting these counts in equatorial coordinates (Right Ascension and Declination) reveals a striking pattern: a bright, thin band cutting across the sky — the Milky Way plane — where most stars are concentrated.
+
+Even at this moderate HEALPix resolution, the galactic bulge near the center stands out prominently, flanked by fainter arms stretching outward. The map below effectively mirrors the band of light visible in the night sky but derived entirely from raw astrometric data.
+
+<Figure caption="Gaia DR3 star density (HEALPix level 4), in equatorial coordinates.">
+  <SkyDensityMap client:visible src={healpix} frame="equatorial" />
+</Figure>
+
+### The Milky Way in Galactic Coordinates
+
+While equatorial coordinates (RA/Dec) are convenient for observers on Earth, they don't align with the galaxy's true geometry. To better understand the Milky Way's structure, we transform the HEALPix centers into Galactic coordinates — longitude (l) and latitude (b).
+
+This coordinate system is centered on the Milky Way itself:
+
+- The Galactic Center lies at (l = 0°, b = 0°),
+- The Galactic plane runs horizontally across b = 0°,
+- Positive longitudes increase counterclockwise around the disk.
+
+When we plot the same HEALPix-level density map in this system, the structure becomes immediately intuitive. The Galactic plane dominates the view as a narrow, high-density strip, and the bulge appears centered at longitude 0°. Off the plane, the density drops sharply, revealing the thinness of our galactic disk compared to its vast lateral spread.
+
+<Figure caption="Gaia DR3 star density (HEALPix level 4), in Galactic coordinates. Longitude increases to the left, as on the sky.">
+  <SkyDensityMap client:visible src={healpix} frame="galactic" />
+</Figure>
+
+### Mapping the Galactic Plane in 3D Cartesian Bins
+
+To explore the structure of the Milky Way's disk in physical space rather than angular coordinates, we transform the stellar positions from Galactic longitude (l), latitude (b), and distance into Cartesian coordinates (x, y).
+
+By binning these stars on a 2D grid in the Galactic plane, we obtain a planar density map centered on the Sun. This highlights how stellar density decreases outward and how the Galactic Center dominates the inner region. With a 5000 pc limit and about 5000 bins, each bin is 141 pc across:
+
+```sql
+SELECT
+  FLOOR(distance_gspphot * COS(RADIANS(b)) * COS(RADIANS(l)) / 141) * 141 AS x_bin,
+  FLOOR(distance_gspphot * COS(RADIANS(b)) * SIN(RADIANS(l)) / 141) * 141 AS y_bin,
+  COUNT(*) AS star_count
+FROM gaiadr3.gaia_source
+WHERE ruwe <= 1.4
+  AND distance_gspphot > 0
+  AND distance_gspphot <= 5000
+GROUP BY x_bin, y_bin
+```
+
+<Figure caption="Gaia DR3 Galactic plane density within 5000 pc of the Sun.">
+  <PlaneDensityMap client:visible src={plane} limit={5000} />
+</Figure>
+
+### Galactic Plane Projection (Refined Distance Limit)
+
+In the previous map, the Cartesian projection extended to 5,000 pc, which caused most nearby structures to appear compressed near the center. To better resolve the spatial structure of the Milky Way's disk, we now limit the dataset to stars within 3,000 pc of the Sun — a range that roughly encompasses the local spiral arm and its surrounding regions.
+
+Crucially, the number of bins in the Cartesian grid remains unchanged. By keeping the bin count constant while reducing the distance range, each bin covers a smaller physical volume (84 pc across), thereby increasing the spatial resolution of the stellar density map.
+
+This refined view enhances the contrast of density variations across the Galactic plane, allowing the spiral arms and disk asymmetries to emerge more distinctly against the background.
+
+<Figure caption="Gaia DR3 Galactic plane density within 3000 pc of the Sun.">
+  <PlaneDensityMap client:visible src={plane} limit={3000} />
+</Figure>
+
+## Conclusion
+
+This article demonstrates how the Gaia DR3 dataset can be systematically explored to map the structure of the Milky Way. By combining HEALPix-based sky binning, Galactic coordinate transformations, and Cartesian projections, we built a reproducible pipeline that converts raw astrometric data into interpretable spatial density maps.
+
+The resulting visualizations reveal the Galaxy's key components — its thin stellar disk, central bulge, and large-scale symmetry — while showing how adjusting parameters such as distance limits or bin resolution can highlight different structural features.
+
+This workflow forms a fundamental framework for future studies, where additional Gaia parameters such as color, magnitude, or proper motion can be incorporated to investigate the Galaxy's stellar populations, kinematics, and evolution in greater depth.
+
+## Acknowledgements
+
+This work has made use of data from the European Space Agency (ESA) mission [Gaia](https://www.cosmos.esa.int/gaia), processed by the Gaia Data Processing and Analysis Consortium ([DPAC](https://www.cosmos.esa.int/web/gaia/dpac/consortium)). Funding for the DPAC has been provided by national institutions, in particular the institutions participating in the Gaia Multilateral Agreement.

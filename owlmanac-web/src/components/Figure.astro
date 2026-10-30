@@ -1,0 +1,29 @@
+---
+interface Props {
+  caption: string;
+}
+---
+
+<figure>
+  <slot />
+  <figcaption>{Astro.props.caption}</figcaption>
+</figure>
+
+<style>
+  figure {
+    margin: 2rem 0;
+  }
+
+  figcaption {
+    margin-top: 0.5rem;
+    color: var(--muted);
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+  }
+
+  figcaption::before {
+    counter-increment: figure;
+    content: "Figure " counter(figure) ". ";
+    font-weight: 600;
+  }
+</style>

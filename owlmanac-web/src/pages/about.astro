@@ -1,0 +1,39 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import Icon from "@/components/Icon.astro";
+import { url } from "@/lib/url";
+---
+
+<BaseLayout title="About">
+  <section class="container page">
+    <div class="prose">
+      <h1>About Me</h1>
+      <p>
+        I'm Ho Zhu Yi, a computational structural engineer. By day I build computational models and data
+        pipelines in Python for large-scale building projects. By night I chase questions that won't leave
+        me alone, often about the sky.
+      </p>
+      <p>
+        An owl sees in the dark, and an almanac is the book of tables that says where the stars will be.
+        Owlmanac tries to be both: each post is a question looked into at night, with the data and charts
+        there for you to check.
+      </p>
+      <p><a class="button" href={url("resume.pdf")}>Download Resume <Icon name="download" /></a></p>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page {
+    padding-top: var(--page-top);
+  }
+
+  .prose {
+    max-width: var(--measure);
+  }
+
+  h1 {
+    font-size: clamp(1.875rem, 1.25rem + 2.5vw, 2.5rem);
+    font-weight: 700;
+  }
+</style>

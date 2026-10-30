@@ -1,0 +1,127 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import Icon from "@/components/Icon.astro";
+import PostCard from "@/components/PostCard.astro";
+import { EMAIL, SITE_TITLE, SOCIAL_LINKS } from "@/consts";
+import { getPosts } from "@/lib/posts";
+import { url } from "@/lib/url";
+
+const posts = await getPosts();
+---
+
+<BaseLayout>
+  <section class="container hero">
+    <p class="welcome">welcome to</p>
+    <h1>{SITE_TITLE}</h1>
+    <p class="lede">
+      An almanac kept by a night owl. Questions I couldn't stop thinking about, worked through with data
+      and code. The charts run in your browser, so you can poke at the data yourself.
+    </p>
+    <p class="socials">{SOCIAL_LINKS.map((link) => <a href={link.url}>{link.name}</a>)}</p>
+  </section>
+
+  <section class="container">
+    <h2 class="section-title">Posts</h2>
+    <ul class="posts">
+      {
+        posts.map((post) => (
+          <li>
+            <PostCard post={post} />
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <section class="container about">
+    <div>
+      <h2 class="section-title">About Me</h2>
+      <p>
+        I'm Ho Zhu Yi, a computational structural engineer. By day I build computational models and data
+        pipelines in Python for large-scale building projects. By night I chase questions that won't leave
+        me alone, often about the sky.
+      </p>
+      <p class="buttons">
+        <a class="button" href={url("about/")}>Go to About <Icon name="arrow" /></a>
+      </p>
+    </div>
+    <div>
+      <h2 class="section-title">Get in touch</h2>
+      <p>Questions, corrections or a sky worth mapping? Email me, or grab my resume.</p>
+      <p class="buttons">
+        <a class="button primary" href={`mailto:${EMAIL}`}>Email me <Icon name="mail" /></a>
+        <a class="button" href={url("resume.pdf")}>Download Resume <Icon name="download" /></a>
+      </p>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .hero {
+    display: grid;
+    gap: 1.5rem;
+    padding-block: clamp(2.5rem, 7vw, 5rem) clamp(2.5rem, 6vw, 4rem);
+  }
+
+  .hero > * {
+    margin: 0;
+  }
+
+  .welcome {
+    margin-bottom: -1rem;
+    color: var(--muted);
+    font-size: clamp(1.125rem, 1rem + 0.6vw, 1.375rem);
+  }
+
+  .hero h1 {
+    font-size: clamp(2.5rem, 1.5rem + 4.5vw, 4.5rem);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  .lede {
+    max-width: 46rem;
+    font-size: clamp(1rem, 0.95rem + 0.35vw, 1.2rem);
+    line-height: 1.6;
+  }
+
+  .socials {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    font-size: 1.05rem;
+  }
+
+  .posts {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+    gap: 2rem 1.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .about {
+    display: grid;
+    gap: 3rem 2.5rem;
+    padding-top: clamp(3rem, 6vw, 5rem);
+  }
+
+  @media (min-width: 56rem) {
+    .about {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .about p {
+    max-width: 40rem;
+  }
+
+  .buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+  }
+</style>

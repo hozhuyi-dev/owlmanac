@@ -1,0 +1,78 @@
+---
+import Icon from "@/components/Icon.astro";
+
+// "auto" follows the reader's system; the choice is kept in localStorage and applied in BaseLayout's head.
+const themes = [
+  { value: "auto", icon: "auto", label: "Follow system theme" },
+  { value: "light", icon: "sun", label: "Light theme" },
+  { value: "dark", icon: "moon", label: "Dark theme" },
+] as const;
+---
+
+<div class="theme-switch" role="group" aria-label="Theme">
+  {
+    themes.map((theme) => (
+      <button type="button" data-theme-value={theme.value} aria-label={theme.label} title={theme.label}>
+        <Icon name={theme.icon} size={16} />
+      </button>
+    ))
+  }
+</div>
+
+<script>
+  const buttons = document.querySelectorAll<HTMLButtonElement>(".theme-switch button");
+
+  function show(theme: string) {
+    buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.themeValue === theme)));
+  }
+
+  function current(): string {
+    return document.documentElement.dataset.theme ?? "auto";
+  }
+
+  buttons.forEach((button) =>
+    button.addEventListener("click", () => {
+      const theme = button.dataset.themeValue!;
+      if (theme === "auto") delete document.documentElement.dataset.theme;
+      else document.documentElement.dataset.theme = theme;
+      try {
+        if (theme === "auto") localStorage.removeItem("theme");
+        else localStorage.setItem("theme", theme);
+      } catch {}
+      show(theme);
+    }),
+  );
+  show(current());
+</script>
+
+<style>
+  .theme-switch {
+    display: flex;
+    gap: 0.125rem;
+    padding: 0.125rem;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+  }
+
+  button {
+    display: grid;
+    place-items: center;
+    padding: 0.25rem;
+    border: 0;
+    border-radius: 999px;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.8;
+  }
+
+  button:hover {
+    opacity: 1;
+  }
+
+  button[aria-pressed="true"] {
+    background: var(--fg);
+    color: var(--bg);
+    opacity: 1;
+  }
+</style>

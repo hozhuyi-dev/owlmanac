@@ -1,0 +1,134 @@
+---
+import { Image } from "astro:assets";
+import { render } from "astro:content";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import Icon from "@/components/Icon.astro";
+import TableOfContents from "@/components/TableOfContents.astro";
+import { formatDate, getPosts, readingTime } from "@/lib/posts";
+
+export async function getStaticPaths() {
+  const posts = await getPosts();
+  return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+}
+
+const { post } = Astro.props;
+const { title, description, pubDate, updatedDate, cover, coverAlt, coverCredit } = post.data;
+const { Content, headings } = await render(post);
+---
+
+<BaseLayout title={title} description={description} image={cover?.src}>
+  <div class="container layout">
+    <article>
+      <header>
+        <h1>{title}</h1>
+        <p class="meta">
+          <span><Icon name="calendar" /><time datetime={pubDate.toISOString()}>{formatDate(pubDate)}</time></span>
+          {
+            updatedDate && (
+              <span>
+                <Icon name="updated" />
+                Last updated on <time datetime={updatedDate.toISOString()}>{formatDate(updatedDate)}</time>
+              </span>
+            )
+          }
+          <span><Icon name="clock" />{readingTime(post.body ?? "")}</span>
+        </p>
+      </header>
+      {
+        cover && (
+          <figure class="cover">
+            <Image src={cover} alt={coverAlt ?? ""} widths={[800, 1600]} sizes="(min-width: 72ch) 72ch, 100vw" loading="eager" />
+            {coverCredit && <figcaption>Image credit: {coverCredit}</figcaption>}
+          </figure>
+        )
+      }
+      <div class="prose">
+        <Content />
+      </div>
+    </article>
+    <aside>
+      <TableOfContents headings={headings} />
+    </aside>
+  </div>
+</BaseLayout>
+
+<style>
+  .layout {
+    display: grid;
+    gap: 2.5rem;
+    padding-top: var(--page-top);
+  }
+
+  article {
+    min-width: 0;
+    max-width: var(--measure);
+  }
+
+  aside {
+    display: none;
+  }
+
+  @media (min-width: 64rem) {
+    .layout {
+      grid-template-columns: minmax(0, var(--measure)) minmax(12rem, 16rem);
+      justify-content: space-between;
+    }
+
+    aside {
+      display: block;
+    }
+
+    aside :global(.toc) {
+      position: sticky;
+      /* Sticks where it starts, so it never slides before sticking. */
+      top: calc(var(--header-height) + var(--page-top));
+      max-height: calc(100vh - var(--header-height) - var(--page-top) - 1rem);
+      overflow-y: auto;
+      padding-top: 0.5rem;
+    }
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(1.875rem, 1.25rem + 2.5vw, 2.5rem);
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.25rem;
+    margin: 1rem 0 1.5rem;
+    font-size: 0.9rem;
+  }
+
+  .meta span {
+    display: inline-flex;
+    gap: 0.4rem;
+    align-items: center;
+  }
+
+  .meta svg {
+    width: 1.1em;
+    height: 1.1em;
+    color: var(--accent);
+  }
+
+  .cover {
+    margin: 0 0 1.5rem;
+  }
+
+  .cover img {
+    display: block;
+    width: 100%;
+    border-radius: 0.5rem;
+  }
+
+  .cover figcaption {
+    margin-top: 0.4rem;
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-style: italic;
+  }
+</style>

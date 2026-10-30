@@ -1,0 +1,214 @@
+---
+import "@/styles/global.css";
+import Icon from "@/components/Icon.astro";
+import ThemeSwitch from "@/components/ThemeSwitch.astro";
+import { AUTHOR, SITE_DESCRIPTION, SITE_TITLE, SOCIAL_LINKS } from "@/consts";
+import { url } from "@/lib/url";
+
+interface Props {
+  title?: string;
+  description?: string;
+  image?: string;
+}
+
+const { title, description = SITE_DESCRIPTION, image } = Astro.props;
+const pageTitle = title ? `${title} · ${SITE_TITLE}` : SITE_TITLE;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const nav = [
+  { name: "Posts", href: url() },
+  { name: "About", href: url("about/") },
+];
+const isCurrent = (href: string) =>
+  href === url() ? Astro.url.pathname === href || Astro.url.pathname.startsWith(url("posts/")) : Astro.url.pathname.startsWith(href);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="author" content={AUTHOR} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href={url("favicon.svg")} />
+    <link rel="alternate" type="application/rss+xml" title={SITE_TITLE} href={url("rss.xml")} />
+    <link rel="sitemap" href={url("sitemap-index.xml")} />
+    <meta property="og:type" content={title ? "article" : "website"} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    {image && <meta property="og:image" content={new URL(image, Astro.site)} />}
+    <meta name="generator" content={Astro.generator} />
+    <!-- Apply a saved theme before first paint, so the page never flashes the other one. -->
+    <script is:inline>
+      try {
+        const theme = localStorage.getItem("theme");
+        if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href={url()} aria-label={`${SITE_TITLE} home`}>
+          <img src={url("favicon.svg")} alt="" width="32" height="32" />
+          <span>{SITE_TITLE}</span>
+        </a>
+        <nav>
+          {
+            nav.map((link) => (
+              <a href={link.href} aria-current={isCurrent(link.href) ? "page" : undefined}>
+                {link.name}
+              </a>
+            ))
+          }
+          <ThemeSwitch />
+        </nav>
+      </div>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <div class="container columns">
+        <div class="signature">
+          <a class="brand" href={url()} aria-label={`${SITE_TITLE} home`}>
+            <img src={url("favicon.svg")} alt="" width="28" height="28" />
+            <span>{SITE_TITLE}</span>
+          </a>
+          <span class="muted">© {new Date().getFullYear()} {AUTHOR}</span>
+        </div>
+        <div>
+          <h3>Links</h3>
+          <p>
+            {nav.map((link) => <a href={link.href}>{link.name}</a>)}
+            <a href={url("rss.xml")} aria-label="RSS feed" title="RSS feed"><Icon name="rss" /></a>
+          </p>
+        </div>
+        <div>
+          <h3>Socials</h3>
+          <p>{SOCIAL_LINKS.map((link) => <a href={link.url}>{link.name}</a>)}</p>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg);
+  }
+
+  .site-header .container {
+    display: flex;
+    gap: 0.75rem 1.5rem;
+    align-items: center;
+    justify-content: space-between;
+    min-height: var(--header-height);
+  }
+
+  .brand {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    color: var(--fg);
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .brand img {
+    display: block;
+  }
+
+  nav {
+    display: flex;
+    gap: 1.25rem;
+    align-items: center;
+    font-size: 1rem;
+  }
+
+  nav a {
+    color: var(--fg);
+    text-decoration: none;
+    text-decoration-thickness: 2px;
+  }
+
+  nav a:hover {
+    text-decoration-line: underline;
+  }
+
+  nav a[aria-current="page"] {
+    color: var(--accent);
+    text-decoration-line: underline;
+  }
+
+  @media (max-width: 30rem) {
+    .site-header .brand span {
+      display: none;
+    }
+
+    nav {
+      gap: 1rem;
+    }
+  }
+
+  main {
+    min-height: 70vh;
+  }
+
+  .site-footer {
+    margin-top: 4rem;
+  }
+
+  .columns {
+    display: grid;
+    gap: 2rem;
+    padding-block: 2.5rem;
+    border-top: 2px solid color-mix(in srgb, var(--fg) 50%, transparent);
+  }
+
+  @media (min-width: 48rem) {
+    .columns {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .signature {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+    align-items: center;
+    align-self: start;
+  }
+
+  .columns h3 {
+    margin: 0 0 0.75rem;
+    font-size: 1.1rem;
+  }
+
+  .columns p {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    margin: 0;
+    font-size: 0.95rem;
+  }
+
+  .columns p a {
+    display: inline-flex;
+    color: var(--fg);
+    text-decoration: none;
+  }
+
+  .columns p a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+</style>

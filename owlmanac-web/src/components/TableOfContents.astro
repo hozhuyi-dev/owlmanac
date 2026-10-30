@@ -1,0 +1,124 @@
+---
+import type { MarkdownHeading } from "astro";
+
+interface Props {
+  headings: MarkdownHeading[];
+}
+
+// Sections (h2) with their subsections (h3) nested; deeper headings stay out of the way.
+const sections: (MarkdownHeading & { children: MarkdownHeading[] })[] = [];
+for (const heading of Astro.props.headings) {
+  if (heading.depth === 2) sections.push({ ...heading, children: [] });
+  else if (heading.depth === 3) sections.at(-1)?.children.push(heading);
+}
+---
+
+{
+  sections.length > 0 && (
+    <nav class="toc" aria-label="On this page">
+      <h2>On This Page</h2>
+      <ul>
+        {sections.map((section) => (
+          <li>
+            <a href={`#${section.slug}`}>{section.text}</a>
+            {section.children.length > 0 && (
+              <ul>
+                {section.children.map((child) => (
+                  <li>
+                    <a href={`#${child.slug}`}>{child.text}</a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ul>
+    </nav>
+  )
+}
+
+<script>
+  // Scroll spy: marks the section being read, and its parent section, as current.
+  const toc = document.querySelector<HTMLElement>(".toc");
+  const links = [...(toc?.querySelectorAll<HTMLAnchorElement>("a") ?? [])];
+  const targets = links.map((link) => document.getElementById(decodeURIComponent(link.hash.slice(1))));
+  let frame = 0;
+
+  function update() {
+    frame = 0;
+    // The current heading is the last one above a line a quarter of the way down the screen. Short
+    // last sections never scroll up to that line, so over the last stretch of the page the line
+    // glides to the bottom of the screen: they light up in turn, and the last one at the very end.
+    const stretch = (innerHeight * 3) / 4;
+    const left = document.documentElement.scrollHeight - innerHeight - scrollY;
+    const line = innerHeight / 4 + stretch * Math.max(0, 1 - left / stretch);
+    let current = -1;
+    targets.forEach((target, i) => {
+      if (target && target.getBoundingClientRect().top <= line) current = i;
+    });
+    const active = links[current];
+    const parent = active?.closest("ul ul")?.closest("li")?.querySelector("a");
+    for (const link of links) {
+      if (link === active || link === parent) link.setAttribute("aria-current", "true");
+      else link.removeAttribute("aria-current");
+    }
+    // Keep the current link in view when the contents are taller than the screen.
+    if (toc && active) {
+      const top = active.getBoundingClientRect().top - toc.getBoundingClientRect().top + toc.scrollTop;
+      if (top < toc.scrollTop || top > toc.scrollTop + toc.clientHeight - active.offsetHeight) {
+        toc.scrollTop = top - toc.clientHeight / 2;
+      }
+    }
+  }
+
+  if (toc) {
+    addEventListener("scroll", () => (frame ||= requestAnimationFrame(update)), { passive: true });
+    addEventListener("resize", () => (frame ||= requestAnimationFrame(update)));
+    update();
+  }
+</script>
+
+<style>
+  h2 {
+    margin: 0 0 0.6rem;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  ul {
+    display: grid;
+    gap: 0.45rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+
+  ul ul {
+    gap: 0.3rem;
+    margin: 0.4rem 0 0 0.2rem;
+    padding-left: 0.8rem;
+    border-left: 1px solid var(--line);
+    font-size: 0.8rem;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  ul ul a {
+    color: var(--muted);
+  }
+
+  a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+  a[aria-current="true"] {
+    color: var(--accent);
+    font-weight: 500;
+  }
+</style>
