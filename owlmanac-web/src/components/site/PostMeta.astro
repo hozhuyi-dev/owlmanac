@@ -1,0 +1,68 @@
+---
+import { formatDate, type Post } from "@/core/site/posts";
+import { url } from "@/core/site/url";
+
+// Under a post's title: when, how long (or what kind of post), what it's built with, and its topics,
+// each linking to the home page filtered by it.
+interface Props {
+  post: Post;
+  extra: string;
+}
+
+const { post, extra } = Astro.props;
+const { pubDate, updatedDate, tags, tools } = post.data;
+---
+
+<p class="meta">
+  <time datetime={pubDate.toISOString()}>{formatDate(pubDate)}</time>
+  {
+    updatedDate && (
+      <span>
+        Updated <time datetime={updatedDate.toISOString()}>{formatDate(updatedDate)}</time>
+      </span>
+    )
+  }
+  <span>{extra}</span>
+  {tools.length > 0 && <span>{tools.join(", ")}</span>}
+  {
+    tags.length > 0 && (
+      <span class="tags">
+        {tags.map((tag) => (
+          <a href={url(`?tag=${encodeURIComponent(tag)}`)}>{tag}</a>
+        ))}
+      </span>
+    )
+  }
+</p>
+
+<style>
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 0;
+    margin: 1rem 0 1.5rem;
+    color: var(--muted);
+    font-size: 0.875rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* A dot between items, and none at a line's start (the gap there is only a wrap). */
+  .meta > :not(:last-child)::after {
+    content: "·";
+    margin-inline: 0.6rem;
+  }
+
+  .tags {
+    display: inline-flex;
+    gap: 0.6rem;
+  }
+
+  .tags a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .tags a:hover {
+    text-decoration: underline;
+  }
+</style>

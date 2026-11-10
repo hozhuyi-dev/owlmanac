@@ -37,7 +37,9 @@ const themes = [
       document.documentElement.dataset.theme = theme;
       try {
         localStorage.setItem("theme", theme);
-      } catch {}
+      } catch {
+        // Storage blocked (a private window): the choice lasts for this page only.
+      }
       show(theme);
     }),
   );

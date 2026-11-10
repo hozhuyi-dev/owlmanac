@@ -1,5 +1,7 @@
 name: Deploy
 
+# A push to main runs every check (ci.yml), then builds the site and deploys it to GitHub Pages. Nothing
+# deploys unless every check passes.
 on:
   push:
     branches: [main]
@@ -15,7 +17,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
   build:
+    needs: checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

@@ -1,6 +1,6 @@
 // @ts-check
 import { readFileSync } from "node:fs";
-import { defineConfig } from "astro/config";
+import { defineConfig, fontProviders } from "astro/config";
 
 import vue from "@astrojs/vue";
 import mdx from "@astrojs/mdx";
@@ -14,6 +14,47 @@ export default defineConfig({
   base: "/owlmanac",
   trailingSlash: "always",
   integrations: [vue(), mdx(), sitemap(), notebooks()],
+  // The site's fonts, from the Fontsource packages (latin only). Astro writes their @font-face rules and a
+  // fallback sized to match each one, so nothing reflows if a font is late; BaseLayout preloads the two
+  // every page uses. `fallback` display hides text for at most ~100ms while a font arrives (a preloaded font
+  // usually does), instead of drawing it in the fallback and visibly swapping.
+  fonts: [
+    {
+      provider: fontProviders.local(),
+      name: "Inter",
+      cssVariable: "--font-sans",
+      fallbacks: ["system-ui", "sans-serif"],
+      display: "fallback",
+      options: {
+        variants: [{ src: ["@fontsource-variable/inter/files/inter-latin-wght-normal.woff2"], weight: "100 900", style: "normal" }],
+      },
+    },
+    {
+      provider: fontProviders.local(),
+      name: "Newsreader",
+      cssVariable: "--font-display",
+      fallbacks: ["Georgia", "serif"],
+      display: "fallback",
+      options: {
+        variants: [
+          { src: ["@fontsource-variable/newsreader/files/newsreader-latin-opsz-normal.woff2"], weight: "200 800", style: "normal" },
+          { src: ["@fontsource-variable/newsreader/files/newsreader-latin-opsz-italic.woff2"], weight: "200 800", style: "italic" },
+        ],
+      },
+    },
+    {
+      provider: fontProviders.local(),
+      name: "JetBrains Mono",
+      cssVariable: "--font-mono",
+      fallbacks: ["ui-monospace", "Menlo", "Consolas", "monospace"],
+      display: "fallback",
+      options: {
+        variants: [
+          { src: ["@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2"], weight: "100 800", style: "normal" },
+        ],
+      },
+    },
+  ],
   markdown: {
     shikiConfig: { themes: { light: "github-light", dark: "github-dark" }, defaultColor: false },
   },

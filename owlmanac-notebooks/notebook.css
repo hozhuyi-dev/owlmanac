@@ -20,6 +20,14 @@
   src: url(fonts/jetbrains-mono-latin-wght-normal.woff2) format("woff2-variations");
 }
 
+@font-face {
+  font-family: "Newsreader Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url(fonts/newsreader-latin-opsz-normal.woff2) format("woff2-variations");
+}
+
 :root:root {
   --site-bg: light-dark(#ffffff, #2b2b2b);
   --site-surface: light-dark(#f2f2f3, #363636);
@@ -29,7 +37,7 @@
   --site-accent: light-dark(#0784b5, #9bd4e4);
 
   --marimo-text-font: "Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --marimo-heading-font: var(--marimo-text-font);
+  --marimo-heading-font: "Newsreader Variable", Georgia, "Times New Roman", serif;
   --marimo-monospace-font: "JetBrains Mono Variable", ui-monospace, Menlo, Consolas, monospace;
 
   --background: var(--site-bg);
@@ -56,7 +64,7 @@ body {
   background: var(--site-bg);
 }
 
-/* Prose reads like the rest of the site: light body text, semibold headings. */
+/* Prose reads like the rest of the site: light body text, headings in the display serif. */
 .markdown {
   font-weight: 300;
   line-height: 1.75;
@@ -66,7 +74,8 @@ body {
 .markdown h2,
 .markdown h3,
 .markdown h4 {
-  font-weight: 600;
+  font-family: var(--marimo-heading-font);
+  font-weight: 500;
   letter-spacing: -0.01em;
 }
 

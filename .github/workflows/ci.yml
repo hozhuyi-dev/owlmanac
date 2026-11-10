@@ -1,0 +1,107 @@
+name: CI
+
+# Every pull request into main is checked here, and every deploy runs the same checks first (deploy.yml
+# calls this workflow). A pull request checks only the parts it changes; a deploy checks everything.
+on:
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # What the pull request changes, so only those parts are checked. A job skipped by its `if` counts as
+  # passed, so required checks don't wait on it.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.changed.outputs.web }}
+      wasm: ${{ steps.changed.outputs.wasm }}
+      notebooks: ${{ steps.changed.outputs.notebooks }}
+    steps:
+      # A pull request's merge commit, and the branch it merges into as its first parent.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - id: changed
+        run: node scripts/changed.mjs ${{ github.event_name == 'pull_request' && 'HEAD^1' || '' }}
+
+  wasm:
+    needs: changes
+    if: needs.changes.outputs.wasm == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: owlmanac-wasm
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup component add rustfmt clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: owlmanac-wasm
+      - name: Format check
+        run: cargo fmt --all --check
+      - name: Lint
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --workspace
+
+  notebooks:
+    needs: changes
+    if: needs.changes.outputs.notebooks == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: owlmanac-notebooks
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v6
+      - name: Lint
+        run: uv run ruff check .
+      - name: Format check
+        run: uv run ruff format --check .
+      # marimo's own check: each notebook is a valid marimo app (cells, names defined once, no cycles).
+      - name: Notebook check
+        run: uv run marimo check .
+
+  # The site builds from the WASM crates and the notebooks, so a change to either checks it too.
+  web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.wasm == 'true' || needs.changes.outputs.notebooks == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: owlmanac-web
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup target add wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: owlmanac-wasm
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack@0.14.0
+      # The build exports notebook posts with marimo, through uv.
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: owlmanac-web/package-lock.json
+      - run: npm ci
+      # The type check reads the generated WASM packages, so they come first.
+      - name: Build WASM
+        run: npm run wasm
+      - name: Type check
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run notebooks && npx astro build

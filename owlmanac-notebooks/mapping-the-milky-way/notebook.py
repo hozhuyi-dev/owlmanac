@@ -4,7 +4,9 @@ exported, it runs in the reader's browser and reads the same cache over HTTP."""
 import marimo
 
 __generated_with = "0.25.2"
-app = marimo.App(width="medium", app_title="Mapping the Milky Way", css_file="../notebook.css")
+app = marimo.App(
+    width="medium", app_title="Mapping the Milky Way", css_file="../notebook.css"
+)
 
 
 @app.cell(hide_code=True)
@@ -57,8 +59,17 @@ def _():
                 "background": "transparent",
                 "font": "Inter Variable",
                 "view": {"stroke": None},
-                "axis": {"grid": False, "labelFontSize": 11, "titleFontSize": 12, "titleFontWeight": 500},
-                "legend": {"labelFontSize": 11, "titleFontSize": 12, "titleFontWeight": 500},
+                "axis": {
+                    "grid": False,
+                    "labelFontSize": 11,
+                    "titleFontSize": 12,
+                    "titleFontWeight": 500,
+                },
+                "legend": {
+                    "labelFontSize": 11,
+                    "titleFontSize": 12,
+                    "titleFontWeight": 500,
+                },
                 "range": {"category": SERIES, "ramp": DUSK, "heatmap": DUSK},
             }
         }
@@ -84,7 +95,9 @@ def _(IN_BROWSER, REFRESH, importlib, json, mo, pl):
         if IN_BROWSER:
             from pyodide.http import pyfetch
 
-            response = await pyfetch(str(mo.notebook_location() / "data" / f"{name}.json"))
+            response = await pyfetch(
+                str(mo.notebook_location() / "data" / f"{name}.json")
+            )
             return pl.DataFrame(json.loads(await response.string()))
         path = mo.notebook_dir() / "data" / f"{name}.json"
         if REFRESH or not path.exists():
@@ -130,9 +143,17 @@ async def _(cached, local_only, pl):
         Gaia.MAIN_GAIA_TABLE = "gaiadr3.gaia_source"
         Gaia.ROW_LIMIT = 5000
         side = u.Quantity(GLIMPSE["width"], u.deg)
-        centre = SkyCoord(ra=GLIMPSE["ra"], dec=GLIMPSE["dec"], unit=(u.deg, u.deg), frame="icrs")
-        stars = pl.from_pandas(Gaia.query_object_async(coordinate=centre, width=side, height=side).to_pandas())
-        return stars.select(pl.col("source_id").cast(pl.String), "ra", "dec", g_mag="phot_g_mean_mag").drop_nulls()
+        centre = SkyCoord(
+            ra=GLIMPSE["ra"], dec=GLIMPSE["dec"], unit=(u.deg, u.deg), frame="icrs"
+        )
+        stars = pl.from_pandas(
+            Gaia.query_object_async(
+                coordinate=centre, width=side, height=side
+            ).to_pandas()
+        )
+        return stars.select(
+            pl.col("source_id").cast(pl.String), "ra", "dec", g_mag="phot_g_mean_mag"
+        ).drop_nulls()
 
     glimpse = await cached("glimpse", query_glimpse)
     glimpse
@@ -149,7 +170,15 @@ def _(mo):
 
 @app.cell
 def _(mo):
-    faintest = mo.ui.slider(10, 21.5, step=0.1, value=21.5, label="Faintest star shown, G ≤", show_value=True, full_width=True)
+    faintest = mo.ui.slider(
+        10,
+        21.5,
+        step=0.1,
+        value=21.5,
+        label="Faintest star shown, G ≤",
+        show_value=True,
+        full_width=True,
+    )
     return (faintest,)
 
 
@@ -168,16 +197,28 @@ def _(GLIMPSE, alt, faintest, glimpse, mo, pl):
             x=alt.X(
                 "ra:Q",
                 title="Right ascension (°)",
-                scale=alt.Scale(domain=[GLIMPSE["ra"] - _half, GLIMPSE["ra"] + _half], nice=False),
+                scale=alt.Scale(
+                    domain=[GLIMPSE["ra"] - _half, GLIMPSE["ra"] + _half], nice=False
+                ),
             ),
             y=alt.Y(
                 "dec:Q",
                 title="Declination (°)",
-                scale=alt.Scale(domain=[GLIMPSE["dec"] - _half, GLIMPSE["dec"] + _half], nice=False),
+                scale=alt.Scale(
+                    domain=[GLIMPSE["dec"] - _half, GLIMPSE["dec"] + _half], nice=False
+                ),
             ),
-            size=alt.Size("brightness:Q", scale=alt.Scale(domain=[0, 12], range=[2, 160], clamp=True), legend=None),
+            size=alt.Size(
+                "brightness:Q",
+                scale=alt.Scale(domain=[0, 12], range=[2, 160], clamp=True),
+                legend=None,
+            ),
             # The theme's dusk ramp: faint stars small and deep, bright ones large and pale, as on a dark sky.
-            color=alt.Color("brightness:Q", title="21 − G", scale=alt.Scale(domain=[0, 12], clamp=True)),
+            color=alt.Color(
+                "brightness:Q",
+                title="21 − G",
+                scale=alt.Scale(domain=[0, 12], clamp=True),
+            ),
             tooltip=[
                 alt.Tooltip("source_id:N", title="Source"),
                 alt.Tooltip("ra:Q", title="RA (°)", format=".4f"),
@@ -187,7 +228,13 @@ def _(GLIMPSE, alt, faintest, glimpse, mo, pl):
         )
         .properties(width="container", height=440)
     )
-    mo.vstack([faintest, mo.md(f"Showing **{_shown.height:,}** of {glimpse.height:,} stars."), _chart])
+    mo.vstack(
+        [
+            faintest,
+            mo.md(f"Showing **{_shown.height:,}** of {glimpse.height:,} stars."),
+            _chart,
+        ]
+    )
     return
 
 
@@ -301,9 +348,9 @@ async def _(adql, cached, local_only, pl):
             WHERE ruwe <= 1.4
             GROUP BY healpix
         """)
-        centres = HEALPix(nside=2**ORDER, order="nested", frame=ICRS()).healpix_to_skycoord(
-            counts["healpix"].cast(pl.Int64).to_numpy()
-        )
+        centres = HEALPix(
+            nside=2**ORDER, order="nested", frame=ICRS()
+        ).healpix_to_skycoord(counts["healpix"].cast(pl.Int64).to_numpy())
         return counts.select(
             pl.col("healpix").cast(pl.Int32),
             pl.col("star_count").cast(pl.Int64),
@@ -322,8 +369,12 @@ async def _(adql, cached, local_only, pl):
 def _(COUNTS, alt):
     def sky_map(pixels, lon, lat, lon_title, lat_title):
         """An Equal Earth map of star counts per pixel; longitude increases to the left, as on the sky."""
-        sphere = alt.Chart(alt.sphere()).mark_geoshape(fill=None, stroke="#888", strokeOpacity=0.5)
-        graticule = alt.Chart(alt.graticule(step=[30, 30])).mark_geoshape(fill=None, stroke="#888", strokeOpacity=0.2)
+        sphere = alt.Chart(alt.sphere()).mark_geoshape(
+            fill=None, stroke="#888", strokeOpacity=0.5
+        )
+        graticule = alt.Chart(alt.graticule(step=[30, 30])).mark_geoshape(
+            fill=None, stroke="#888", strokeOpacity=0.2
+        )
         stars = (
             alt.Chart(pixels)
             .transform_calculate(flipped=f"-datum.{lon}")
@@ -331,7 +382,12 @@ def _(COUNTS, alt):
             .encode(
                 longitude="flipped:Q",
                 latitude=f"{lat}:Q",
-                color=alt.Color("star_count:Q", title="Stars per pixel", scale=COUNTS, legend=alt.Legend(format="~s")),
+                color=alt.Color(
+                    "star_count:Q",
+                    title="Stars per pixel",
+                    scale=COUNTS,
+                    legend=alt.Legend(format="~s"),
+                ),
                 tooltip=[
                     alt.Tooltip("healpix:Q", title="HEALPix"),
                     alt.Tooltip(f"{lon}:Q", title=lon_title, format=".1f"),
@@ -340,7 +396,11 @@ def _(COUNTS, alt):
                 ],
             )
         )
-        return alt.layer(sphere, graticule, stars).project(type="equalEarth").properties(width="container", height=380)
+        return (
+            alt.layer(sphere, graticule, stars)
+            .project(type="equalEarth")
+            .properties(width="container", height=380)
+        )
 
     return (sky_map,)
 
@@ -389,7 +449,14 @@ def _(mo):
 
 @app.cell
 def _(mo):
-    band = mo.ui.slider(1, 45, value=10, label="Galactic latitude band, |b| ≤", show_value=True, full_width=True)
+    band = mo.ui.slider(
+        1,
+        45,
+        value=10,
+        label="Galactic latitude band, |b| ≤",
+        show_value=True,
+        full_width=True,
+    )
     band
     return (band,)
 
@@ -445,7 +512,9 @@ async def _(adql, cached, math, pl):
             star_count=pl.col("star_count").cast(pl.Int64),
         )
 
-    plane_density = await cached("plane-density", lambda: pl.concat([query_plane(5000), query_plane(3000)]))
+    plane_density = await cached(
+        "plane-density", lambda: pl.concat([query_plane(5000), query_plane(3000)])
+    )
     plane_density
     return (plane_density,)
 
@@ -456,23 +525,39 @@ def _(COUNTS, alt, pl):
         """Star counts per bin on the Galactic plane, the Sun at the origin. A fixed square, as x and y are
         both parsecs; on a narrow screen it scrolls sideways in its own box."""
         bins = plane_density.filter(pl.col("distance_limit") == limit).with_columns(
-            x_end=pl.col("x") + pl.col("bin_size"), y_end=pl.col("y") + pl.col("bin_size")
+            x_end=pl.col("x") + pl.col("bin_size"),
+            y_end=pl.col("y") + pl.col("bin_size"),
         )
-        reach = float(bins.select(pl.max_horizontal(-pl.col("x"), "x_end", -pl.col("y"), "y_end").max()).item())
+        reach = float(
+            bins.select(
+                pl.max_horizontal(-pl.col("x"), "x_end", -pl.col("y"), "y_end").max()
+            ).item()
+        )
         scale = alt.Scale(domain=[-reach, reach], nice=False)
         return (
             alt.Chart(bins)
             .mark_rect()
             .encode(
-                x=alt.X("x:Q", title="Galactic X (pc), towards the Galactic Centre →", scale=scale),
+                x=alt.X(
+                    "x:Q",
+                    title="Galactic X (pc), towards the Galactic Centre →",
+                    scale=scale,
+                ),
                 x2="x_end:Q",
-                y=alt.Y("y:Q", title="↑ Galactic Y (pc), direction of rotation", scale=scale),
+                y=alt.Y(
+                    "y:Q", title="↑ Galactic Y (pc), direction of rotation", scale=scale
+                ),
                 y2="y_end:Q",
                 color=alt.Color(
                     "star_count:Q",
                     title="Stars per bin",
                     scale=COUNTS,
-                    legend=alt.Legend(orient="bottom", direction="horizontal", gradientLength=240, format="~s"),
+                    legend=alt.Legend(
+                        orient="bottom",
+                        direction="horizontal",
+                        gradientLength=240,
+                        format="~s",
+                    ),
                 ),
                 tooltip=[
                     alt.Tooltip("x:Q", title="X (pc)"),
@@ -506,7 +591,11 @@ def _(mo):
 
 @app.cell
 def _(mo, plane_density, plane_map):
-    near = mo.ui.altair_chart(plane_map(plane_density, 3000), chart_selection="interval", legend_selection=False)
+    near = mo.ui.altair_chart(
+        plane_map(plane_density, 3000),
+        chart_selection="interval",
+        legend_selection=False,
+    )
     near
     return (near,)
 
@@ -519,9 +608,13 @@ def _(mo, near):
     else:
         _out = mo.hstack(
             [
-                mo.stat(f"{int(_picked['star_count'].sum()):,}", label="stars selected"),
+                mo.stat(
+                    f"{int(_picked['star_count'].sum()):,}", label="stars selected"
+                ),
                 mo.stat(f"{_picked.height:,}", label="bins"),
-                mo.stat(f"{int(_picked['star_count'].max()):,}", label="in the densest bin"),
+                mo.stat(
+                    f"{int(_picked['star_count'].max()):,}", label="in the densest bin"
+                ),
             ],
             justify="start",
             gap=2,

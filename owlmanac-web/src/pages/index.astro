@@ -1,127 +1,269 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import Icon from "@/components/site/Icon.astro";
-import PostCard from "@/components/site/PostCard.astro";
-import { EMAIL, SITE_TITLE, SOCIAL_LINKS } from "@/consts";
-import { getPosts } from "@/core/site/posts";
+import PostRow from "@/components/site/PostRow.astro";
+import Quiet from "@/components/site/Quiet.astro";
+import { AUTHOR, SITE_TITLE } from "@/consts";
+import { getPosts, topics } from "@/core/site/posts";
 import { url } from "@/core/site/url";
 
+// The home page is the index: find a post by its words or its topic. The filter runs in the browser and
+// is kept in the URL (?q=…&tag=…), so a post's topic links here filtered.
 const posts = await getPosts();
+const years = [...new Set(posts.map((post) => post.data.pubDate.getUTCFullYear()))];
+const allTopics = topics(posts);
 ---
 
 <BaseLayout>
-  <section class="container hero">
-    <p class="welcome">welcome to</p>
-    <h1>{SITE_TITLE}</h1>
+  <section class="container intro">
+    <h1 class="visually-hidden">{SITE_TITLE}</h1>
     <p class="lede">
-      An almanac kept by a night owl. Questions I couldn't stop thinking about, worked through with data
-      and code. The charts run in your browser, so you can poke at the data yourself.
+      A night owl's almanac of interesting problems, worked through in code, by <a href={url("about/")}>{AUTHOR}</a>.
     </p>
-    <p class="socials">{SOCIAL_LINKS.map((link) => <a href={link.url}>{link.name}</a>)}</p>
   </section>
 
-  <section class="container">
-    <h2 class="section-title">Posts</h2>
-    <ul class="posts">
+  <section class="container finder" aria-label="Find a post">
+    <label class="search">
+      <Icon name="search" size={16} />
+      <span class="visually-hidden">Search posts</span>
+      <input id="search" type="search" placeholder="Search the almanac…" autocomplete="off" spellcheck="false" />
+      <kbd aria-hidden="true">/</kbd>
+    </label>
+    <ul class="chips" aria-label="Topics">
+      <li>
+        <button type="button" data-tag="" aria-pressed="true">All <span class="count">{posts.length}</span></button>
+      </li>
       {
-        posts.map((post) => (
+        allTopics.map((topic) => (
           <li>
-            <PostCard post={post} />
+            <button type="button" data-tag={topic.name} aria-pressed="false">
+              {topic.name} <span class="count">{topic.count}</span>
+            </button>
           </li>
         ))
       }
     </ul>
   </section>
 
-  <section class="container about">
-    <div>
-      <h2 class="section-title">About Me</h2>
-      <p>
-        I'm Ho Zhu Yi, a computational structural engineer. By day I build computational models and data
-        pipelines in Python for large-scale building projects. By night I chase questions that won't leave
-        me alone, often about the sky.
-      </p>
-      <p class="buttons">
-        <a class="button" href={url("about/")}>Go to About <Icon name="arrow" /></a>
-      </p>
-    </div>
-    <div>
-      <h2 class="section-title">Get in touch</h2>
-      <p>Questions, corrections or a sky worth mapping? Email me, or grab my resume.</p>
-      <p class="buttons">
-        <a class="button primary" href={`mailto:${EMAIL}`}>Email me <Icon name="mail" /></a>
-        <a class="button" href={url("resume.pdf")}>Download Resume <Icon name="download" /></a>
-      </p>
+  <section class="container" aria-label="Posts">
+    {
+      years.map((year, y) => (
+        <section class="year" data-year>
+          <h2>{year}</h2>
+          <ol>
+            {posts
+              .filter((post) => post.data.pubDate.getUTCFullYear() === year)
+              .map((post, i) => (
+                <PostRow post={post} posts={posts} eager={y === 0 && i < 2} />
+              ))}
+          </ol>
+        </section>
+      ))
+    }
+    <div class="nothing" hidden>
+      <Quiet pool="empty">
+        <p>No posts match <span class="what"></span>. <button type="button" class="clear">Clear the search</button></p>
+      </Quiet>
     </div>
   </section>
 </BaseLayout>
 
+<script>
+  const input = document.querySelector<HTMLInputElement>("#search")!;
+  const chips = [...document.querySelectorAll<HTMLButtonElement>(".chips button")];
+  const rows = [...document.querySelectorAll<HTMLElement>("[data-search]")];
+  const years = [...document.querySelectorAll<HTMLElement>("[data-year]")];
+  const nothing = document.querySelector<HTMLElement>(".nothing")!;
+
+  const params = new URLSearchParams(location.search);
+  let q = params.get("q") ?? "";
+  let tag = params.get("tag") ?? "";
+  input.value = q;
+
+  function apply() {
+    const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+    let shown = 0;
+    for (const row of rows) {
+      const match =
+        (!tag || row.dataset.tags!.split("|").includes(tag)) && words.every((word) => row.dataset.search!.includes(word));
+      row.hidden = !match;
+      if (match) shown++;
+    }
+    for (const year of years) year.hidden = !year.querySelector("[data-search]:not([hidden])");
+    chips.forEach((chip) => chip.setAttribute("aria-pressed", String(chip.dataset.tag === tag)));
+    nothing.hidden = shown > 0;
+    nothing.querySelector(".what")!.textContent = [q && `“${q}”`, tag && `in ${tag}`].filter(Boolean).join(" ");
+
+    const next = new URLSearchParams();
+    if (q) next.set("q", q);
+    if (tag) next.set("tag", tag);
+    history.replaceState(null, "", next.size ? `?${next}` : location.pathname);
+  }
+
+  input.addEventListener("input", () => {
+    q = input.value.trim();
+    apply();
+  });
+  chips.forEach((chip) =>
+    chip.addEventListener("click", () => {
+      tag = chip.dataset.tag!;
+      apply();
+    }),
+  );
+  nothing.querySelector(".clear")!.addEventListener("click", () => {
+    q = tag = input.value = "";
+    apply();
+    input.focus();
+  });
+  // "/" jumps to the search, unless the reader is already typing somewhere.
+  addEventListener("keydown", (event) => {
+    if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+    if ((event.target as Element).closest("input, textarea, select, [contenteditable]")) return;
+    event.preventDefault();
+    input.focus();
+  });
+  if (q || tag) apply();
+</script>
+
 <style>
-  .hero {
-    display: grid;
-    gap: 1.5rem;
-    padding-block: clamp(2.5rem, 7vw, 5rem) clamp(2.5rem, 6vw, 4rem);
-  }
-
-  .hero > * {
-    margin: 0;
-  }
-
-  .welcome {
-    margin-bottom: -1rem;
-    color: var(--muted);
-    font-size: clamp(1.125rem, 1rem + 0.6vw, 1.375rem);
-  }
-
-  .hero h1 {
-    font-size: clamp(2.5rem, 1.5rem + 4.5vw, 4.5rem);
-    font-weight: 700;
-    line-height: 1;
-    letter-spacing: -0.02em;
+  .intro {
+    padding-top: clamp(1.5rem, 5vw, 3.5rem);
   }
 
   .lede {
-    max-width: 46rem;
-    font-size: clamp(1rem, 0.95rem + 0.35vw, 1.2rem);
-    line-height: 1.6;
+    max-width: 38rem;
+    margin: 0;
+    color: var(--muted);
+    font-family: var(--font-display);
+    font-size: clamp(1.25rem, 1.1rem + 0.8vw, 1.6rem);
+    line-height: 1.4;
   }
 
-  .socials {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1.5rem;
-    font-size: 1.05rem;
+  .lede a {
+    color: var(--fg);
   }
 
-  .posts {
+  .finder {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
-    gap: 2rem 1.25rem;
+    gap: 1rem;
+    padding-block: 2rem 1.5rem;
+  }
+
+  .search {
+    position: relative;
+    max-width: 26rem;
+    color: var(--muted);
+  }
+
+  .search :global(svg) {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+  }
+
+  .search input {
+    width: 100%;
+    padding: 0.5rem 2rem 0.5rem 1.6rem;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    background: transparent;
+    color: var(--fg);
+    font: 300 1rem var(--font-sans);
+  }
+
+  .search input:focus {
+    border-bottom-color: var(--accent);
+    outline: none;
+  }
+
+  .search kbd {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    padding: 0 0.35rem;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    font: 0.72rem var(--font-sans);
+    transform: translateY(-50%);
+  }
+
+  /* Topics: one row, scrolling sideways on a phone. */
+  .chips {
+    display: flex;
+    gap: 0.4rem;
+    margin: 0 calc(-1 * var(--gutter));
+    padding: 0 var(--gutter);
+    overflow-x: auto;
+    list-style: none;
+    scrollbar-width: none;
+  }
+
+  .chips button {
+    flex: none;
+    padding: 0.22rem 0.8rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: none;
+    color: var(--muted);
+    font: 400 0.8rem var(--font-sans);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .chips button:hover {
+    border-color: var(--muted);
+    color: var(--fg);
+  }
+
+  .chips button[aria-pressed="true"] {
+    border-color: var(--fg);
+    background: var(--fg);
+    color: var(--bg);
+    font-weight: 500;
+  }
+
+  /* How many posts a topic has: small and quiet beside its name. */
+  .count {
+    margin-left: 0.2rem;
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.6;
+  }
+
+  .year + .year {
+    margin-top: 2.5rem;
+  }
+
+  .year h2 {
+    margin: 0;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 1rem;
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  ol {
     margin: 0;
     padding: 0;
     list-style: none;
   }
 
-  .about {
-    display: grid;
-    gap: 3rem 2.5rem;
-    padding-top: clamp(3rem, 6vw, 5rem);
+  .nothing {
+    padding-block: 2rem;
   }
 
-  @media (min-width: 56rem) {
-    .about {
-      grid-template-columns: 1fr 1fr;
-    }
-  }
-
-  .about p {
-    max-width: 40rem;
-  }
-
-  .buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    margin-top: 1.25rem;
+  .clear {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    cursor: pointer;
   }
 </style>

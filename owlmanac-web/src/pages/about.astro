@@ -1,39 +1,50 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
-import Icon from "@/components/site/Icon.astro";
-import { url } from "@/core/site/url";
+import Resume from "@/components/site/Resume.astro";
+import { Content as Summary } from "@/content/about.md";
+import { EMAIL, SOCIAL_LINKS } from "@/consts";
+
+// About: a short summary (src/content/about.md), ways to get in touch, and the resume (public/resume.pdf).
+// Updating either is one file.
 ---
 
 <BaseLayout title="About">
   <section class="container page">
-    <div class="prose">
-      <h1>About Me</h1>
-      <p>
-        I'm Ho Zhu Yi, a computational structural engineer. By day I build computational models and data
-        pipelines in Python for large-scale building projects. By night I chase questions that won't leave
-        me alone, often about the sky.
-      </p>
-      <p>
-        An owl sees in the dark, and an almanac is the book of tables that says where the stars will be.
-        Owlmanac tries to be both: each post is a question looked into at night, with the data and charts
-        there for you to check.
-      </p>
-      <p><a class="button" href={url("resume.pdf")}>Download Resume <Icon name="download" /></a></p>
+    <h1 class="visually-hidden">About</h1>
+    <div class="summary">
+      <Summary />
     </div>
+    <p class="contact">
+      <a href={`mailto:${EMAIL}`}>{EMAIL}</a>
+      {SOCIAL_LINKS.map((link) => <a href={link.url}>{link.name}</a>)}
+    </p>
+    <Resume />
   </section>
 </BaseLayout>
 
 <style>
+  /* Opens like the home page: no visible title (the header's About link says where you are), the summary
+     at the intro line's place, size and measure. */
   .page {
-    padding-top: var(--page-top);
+    padding-top: clamp(1.5rem, 5vw, 3.5rem);
   }
 
-  .prose {
-    max-width: var(--measure);
+  .summary {
+    max-width: 38rem;
+    color: var(--muted);
+    font-family: var(--font-display);
+    font-size: clamp(1.25rem, 1.1rem + 0.8vw, 1.6rem);
+    line-height: 1.4;
   }
 
-  h1 {
-    font-size: clamp(1.875rem, 1.25rem + 2.5vw, 2.5rem);
-    font-weight: 700;
+  .summary :global(p) {
+    margin: 0 0 1rem;
+  }
+
+  .contact {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin: 0;
   }
 </style>

@@ -13,6 +13,7 @@ const notebooks = join(web, "../owlmanac-notebooks");
 const fonts = [
   "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",
   "@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2",
+  "@fontsource-variable/newsreader/files/newsreader-latin-opsz-normal.woff2",
 ];
 
 for (const slug of readdirSync(posts)) {

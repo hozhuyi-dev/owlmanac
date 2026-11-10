@@ -1,8 +1,9 @@
 ---
+import { Font } from "astro:assets";
 import "@/styles/global.css";
-import Icon from "@/components/site/Icon.astro";
 import ThemeSwitch from "@/components/site/ThemeSwitch.astro";
 import { AUTHOR, SITE_DESCRIPTION, SITE_TITLE, SOCIAL_LINKS } from "@/consts";
+import { artUrl, owlMarkSvg, QUIPS } from "@/core/site/owl-art";
 import { url } from "@/core/site/url";
 
 interface Props {
@@ -14,12 +15,10 @@ interface Props {
 const { title, description = SITE_DESCRIPTION, image } = Astro.props;
 const pageTitle = title ? `${title} · ${SITE_TITLE}` : SITE_TITLE;
 const canonical = new URL(Astro.url.pathname, Astro.site);
-const nav = [
-  { name: "Posts", href: url() },
-  { name: "About", href: url("about/") },
-];
-const isCurrent = (href: string) =>
-  href === url() ? Astro.url.pathname === href || Astro.url.pathname.startsWith(url("posts/")) : Astro.url.pathname.startsWith(href);
+const aboutHref = url("about/");
+const onAbout = Astro.url.pathname.startsWith(aboutHref);
+const busy = QUIPS.busy;
+const broken = QUIPS.broken;
 ---
 
 <!doctype html>
@@ -40,29 +39,59 @@ const isCurrent = (href: string) =>
     <meta property="og:url" content={canonical} />
     {image && <meta property="og:image" content={new URL(image, Astro.site)} />}
     <meta name="generator" content={Astro.generator} />
+    <!-- Fonts: body text and headings are on every page, so their files load at once; code's when used. -->
+    <Font cssVariable="--font-sans" preload />
+    <Font cssVariable="--font-display" preload={[{ style: "normal" }]} />
+    <Font cssVariable="--font-mono" />
     <!-- Apply a saved theme before first paint, so the page never flashes the other one. -->
     <script is:inline>
       try {
         const theme = localStorage.getItem("theme");
         if (theme === "light" || theme === "dark" || theme === "auto") document.documentElement.dataset.theme = theme;
-      } catch {}
+      } catch {
+        // Storage blocked (a private window): the default, dark, stays.
+      }
     </script>
+    <!-- The quips CSS shows (a chart waiting, a figure's failure), one per visit. -->
+    <script is:inline define:vars={{ busy, broken }}>
+      const pick = (list) => list[Math.floor(Math.random() * list.length)];
+      document.documentElement.style.setProperty("--busy-quip", JSON.stringify(pick(busy)));
+      document.documentElement.style.setProperty("--broken-quip", JSON.stringify(pick(broken)));
+    </script>
+    <style is:inline set:html={`:root{--busy-art:${artUrl("owl")}}`} />
   </head>
   <body>
+    <!-- Duotone plates for covers: luminance onto the theme's colours. Covers are drawn on the dark theme's
+         charcoal (#2b2b2b, luminance about 1/6), which lands exactly on the page; brighter lines ramp to the
+         accent. In light theme the plate inverts to ink on white. -->
+    <svg class="visually-hidden" aria-hidden="true" focusable="false">
+      <defs>
+        <filter id="duo-dark" color-interpolation-filters="sRGB">
+          <feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 1 0" />
+          <feComponentTransfer>
+            <feFuncR type="table" tableValues="0.169 0.169 0.30 0.45 0.60 0.78 0.92" />
+            <feFuncG type="table" tableValues="0.169 0.169 0.36 0.58 0.76 0.88 0.97" />
+            <feFuncB type="table" tableValues="0.169 0.169 0.38 0.62 0.82 0.92 0.98" />
+          </feComponentTransfer>
+        </filter>
+        <filter id="duo-light" color-interpolation-filters="sRGB">
+          <feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 1 0" />
+          <feComponentTransfer>
+            <feFuncR type="table" tableValues="1 1 0.70 0.40 0.15 0.04 0.02" />
+            <feFuncG type="table" tableValues="1 1 0.86 0.70 0.55 0.42 0.30" />
+            <feFuncB type="table" tableValues="1 1 0.92 0.82 0.72 0.60 0.45" />
+          </feComponentTransfer>
+        </filter>
+      </defs>
+    </svg>
     <header class="site-header">
       <div class="container">
-        <a class="brand" href={url()} aria-label={`${SITE_TITLE} home`}>
-          <img src={url("favicon.svg")} alt="" width="32" height="32" />
+        <a class="brand" href={url()} aria-label={`${SITE_TITLE}, all posts`}>
+          <Fragment set:html={owlMarkSvg(36)} />
           <span>{SITE_TITLE}</span>
         </a>
-        <nav>
-          {
-            nav.map((link) => (
-              <a href={link.href} aria-current={isCurrent(link.href) ? "page" : undefined}>
-                {link.name}
-              </a>
-            ))
-          }
+        <nav aria-label="Site">
+          <a href={aboutHref} aria-current={onAbout ? "page" : undefined}>About</a>
           <ThemeSwitch />
         </nav>
       </div>
@@ -71,36 +100,39 @@ const isCurrent = (href: string) =>
       <slot />
     </main>
     <footer class="site-footer">
-      <div class="container columns">
-        <div class="signature">
-          <a class="brand" href={url()} aria-label={`${SITE_TITLE} home`}>
-            <img src={url("favicon.svg")} alt="" width="28" height="28" />
-            <span>{SITE_TITLE}</span>
-          </a>
-          <span class="muted">© {new Date().getFullYear()} {AUTHOR}</span>
-        </div>
-        <div>
-          <h3>Links</h3>
-          <p>
-            {nav.map((link) => <a href={link.href}>{link.name}</a>)}
-            <a href={url("rss.xml")} aria-label="RSS feed" title="RSS feed"><Icon name="rss" /></a>
-          </p>
-        </div>
-        <div>
-          <h3>Socials</h3>
-          <p>{SOCIAL_LINKS.map((link) => <a href={link.url}>{link.name}</a>)}</p>
-        </div>
+      <div class="container">
+        <p>
+          <span>© {new Date().getFullYear()} {AUTHOR}</span>
+          {SOCIAL_LINKS.map((link) => <a href={link.url}>{link.name}</a>)}
+          <a href={url("rss.xml")}>RSS</a>
+        </p>
       </div>
     </footer>
+    <script>
+      // A touch screen can't hover, so a cover takes its colours while it crosses the middle of the screen.
+      if (matchMedia("(hover: none)").matches && "IntersectionObserver" in window) {
+        const observer = new IntersectionObserver(
+          (entries) => entries.forEach((entry) => entry.target.classList.toggle("lit", entry.isIntersecting)),
+          { rootMargin: "-40% 0px -40% 0px" },
+        );
+        document.querySelectorAll(".cover").forEach((cover) => observer.observe(cover));
+      }
+    </script>
   </body>
 </html>
 
 <style>
   .site-header {
-    position: sticky;
-    top: 0;
-    z-index: 10;
     background: var(--bg);
+  }
+
+  /* Sticky on wide screens only; on a phone it scrolls away and a post's contents bar takes the top. */
+  @media (min-width: 64rem) {
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
   }
 
   .site-header .container {
@@ -113,16 +145,19 @@ const isCurrent = (href: string) =>
 
   .brand {
     display: flex;
-    gap: 0.6rem;
+    gap: 0.55rem;
     align-items: center;
     color: var(--fg);
-    font-size: 1.1rem;
-    font-weight: 700;
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
     text-decoration: none;
   }
 
-  .brand img {
+  .brand :global(svg) {
     display: block;
+    margin-top: -0.2rem;
   }
 
   nav {
@@ -135,26 +170,12 @@ const isCurrent = (href: string) =>
   nav a {
     color: var(--fg);
     text-decoration: none;
-    text-decoration-thickness: 2px;
+    text-decoration-thickness: 1px;
   }
 
-  nav a:hover {
-    text-decoration-line: underline;
-  }
-
+  nav a:hover,
   nav a[aria-current="page"] {
-    color: var(--accent);
     text-decoration-line: underline;
-  }
-
-  @media (max-width: 30rem) {
-    .site-header .brand span {
-      display: none;
-    }
-
-    nav {
-      gap: 1rem;
-    }
   }
 
   main {
@@ -162,53 +183,27 @@ const isCurrent = (href: string) =>
   }
 
   .site-footer {
-    margin-top: 4rem;
+    margin-top: 5rem;
   }
 
-  .columns {
-    display: grid;
-    gap: 2rem;
-    padding-block: 2.5rem;
-    border-top: 2px solid color-mix(in srgb, var(--fg) 50%, transparent);
-  }
-
-  @media (min-width: 48rem) {
-    .columns {
-      grid-template-columns: repeat(3, 1fr);
-    }
-  }
-
-  .signature {
+  .site-footer p {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem 0.75rem;
-    align-items: center;
-    align-self: start;
-  }
-
-  .columns h3 {
-    margin: 0 0 0.75rem;
-    font-size: 1.1rem;
-  }
-
-  .columns p {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    align-items: center;
     margin: 0;
-    font-size: 0.95rem;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.25rem;
+    padding-block: 1.5rem 2rem;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 0.85rem;
   }
 
-  .columns p a {
-    display: inline-flex;
-    color: var(--fg);
+  .site-footer a {
+    color: inherit;
     text-decoration: none;
   }
 
-  .columns p a:hover {
-    color: var(--accent);
+  .site-footer a:hover {
+    color: var(--fg);
     text-decoration: underline;
   }
-
 </style>

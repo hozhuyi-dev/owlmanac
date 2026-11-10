@@ -21,3 +21,14 @@ package = false
 # Follow the reader's theme; inside a post, the export makes this follow the site's theme switch.
 [tool.marimo.display]
 theme = "system"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.17.4",
+]
+
+# Lint and format checks (CI runs them), with Ruff's defaults but for marimo's conventions.
+[tool.ruff.lint]
+# Two of marimo's own conventions read as mistakes to Ruff: a cell ends with `return` (PLR1711), and a
+# cell's last bare expression is what it displays (B018).
+ignore = ["PLR1711", "B018"]

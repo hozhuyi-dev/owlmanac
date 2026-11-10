@@ -3,8 +3,11 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { CollectionEntry } from "astro:content";
 import BaseLayout from "@/layouts/BaseLayout.astro";
-import Icon from "@/components/site/Icon.astro";
-import { formatDate } from "@/core/site/posts";
+import NextRead from "@/components/site/NextRead.astro";
+import PostMeta from "@/components/site/PostMeta.astro";
+import SeriesNav from "@/components/site/SeriesNav.astro";
+import { artSvg } from "@/core/site/owl-art";
+import { getPosts } from "@/core/site/posts";
 
 // A notebook post: the site's header and the post's title, then its marimo notebook (notebook/, a WASM
 // export served beside the page) at full width. The page and notebook share an origin, so the frame
@@ -14,7 +17,8 @@ interface Props {
 }
 
 const { post } = Astro.props;
-const { title, description, pubDate, updatedDate, cover } = post.data;
+const posts = await getPosts();
+const { title, description, cover } = post.data;
 // The export is generated (npm run notebooks); without it the frame would load the site's own 404 page.
 const exported = existsSync(join(process.cwd(), "src/content/posts", post.id, "notebook", "index.html"));
 const missing = import.meta.env.DEV
@@ -25,18 +29,8 @@ const missing = import.meta.env.DEV
 <BaseLayout title={title} description={description} image={cover?.src}>
   <header class="container">
     <h1>{title}</h1>
-    <p class="meta">
-      <span><Icon name="calendar" /><time datetime={pubDate.toISOString()}>{formatDate(pubDate)}</time></span>
-      {
-        updatedDate && (
-          <span>
-            <Icon name="updated" />
-            Last updated on <time datetime={updatedDate.toISOString()}>{formatDate(updatedDate)}</time>
-          </span>
-        )
-      }
-      <span class="muted">A marimo notebook, run in your browser.</span>
-    </p>
+    <PostMeta post={post} extra="A notebook, run in your browser" />
+    <SeriesNav post={post} posts={posts} />
   </header>
   <p class="container notebook-missing figure-status failed" hidden={exported}>{missing}</p>
   {
@@ -44,15 +38,20 @@ const missing = import.meta.env.DEV
       <>
         <iframe class="notebook" src="notebook/" title={title} />
         <div class="notebook-toast" role="status" aria-live="polite" data-state="loading">
-          <span class="spinner" aria-hidden="true" />
+          <span class="owl" set:html={artSvg("owl", 28, { draw: true })} />
           <span class="text">Loading Python in your browser. The outputs are already here; inputs work once it's ready.</span>
         </div>
       </>
     )
   }
+  <div class="container">
+    <NextRead post={post} posts={posts} />
+  </div>
 </BaseLayout>
 
 <script>
+  import { owlMarkSvg } from "@/core/site/owl-art";
+
   const frame = document.querySelector<HTMLIFrameElement>("iframe.notebook");
 
   // marimo scrolls inside #App, which fills the frame. Growing the frame to #App's content height lets
@@ -105,6 +104,9 @@ const missing = import.meta.env.DEV
     if (!toast || toast.dataset.state === state) return;
     toast.dataset.state = state;
     toast.querySelector(".text")!.textContent = MESSAGES[state];
+    // While Python loads, the owl draws itself; once the notebook is live, the sketch gives way to the
+    // finished mark, still, so nothing in the toast looks busy any more.
+    if (state === "ready") toast.querySelector(".owl")!.innerHTML = owlMarkSvg(28);
     if (state === "ready") setTimeout(() => (toast.hidden = true), 4000);
   }
 
@@ -143,29 +145,8 @@ const missing = import.meta.env.DEV
 
   h1 {
     margin: 0;
-    font-size: clamp(1.875rem, 1.25rem + 2.5vw, 2.5rem);
-    font-weight: 700;
-    line-height: 1.2;
-  }
-
-  .meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem 1.25rem;
-    margin: 1rem 0 0;
-    font-size: 0.9rem;
-  }
-
-  .meta span {
-    display: inline-flex;
-    gap: 0.4rem;
-    align-items: center;
-  }
-
-  .meta svg {
-    width: 1.1em;
-    height: 1.1em;
-    color: var(--accent);
+    font-size: clamp(2rem, 1.3rem + 2.8vw, 3rem);
+    line-height: 1.1;
   }
 
   .notebook {
@@ -204,34 +185,10 @@ const missing = import.meta.env.DEV
     display: none;
   }
 
-  .spinner {
+  /* The toast's drawing: the owl drawing itself while Python loads, the filled mark once it's live (show). */
+  .owl {
+    display: grid;
     flex: none;
-    width: 0.9rem;
-    height: 0.9rem;
-    border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  .notebook-toast[data-state="ready"] .spinner {
-    border-color: var(--accent);
-    animation: none;
-  }
-
-  .notebook-toast[data-state="slow"] .spinner {
-    animation-duration: 2s;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .spinner {
-      animation-duration: 3s;
-    }
+    color: var(--accent);
   }
 </style>

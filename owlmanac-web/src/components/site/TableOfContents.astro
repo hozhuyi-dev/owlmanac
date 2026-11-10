@@ -1,11 +1,13 @@
 ---
 import type { MarkdownHeading } from "astro";
 
+// A post's contents. Wide screens: a column of sections (h2) with their subsections (h3). A phone: a bar
+// of sections only, scrolling sideways, with a line along its foot for how far through the post you are.
+// Either way it marks the section being read.
 interface Props {
   headings: MarkdownHeading[];
 }
 
-// Sections (h2) with their subsections (h3) nested; deeper headings stay out of the way.
 const sections: (MarkdownHeading & { children: MarkdownHeading[] })[] = [];
 for (const heading of Astro.props.headings) {
   if (heading.depth === 2) sections.push({ ...heading, children: [] });
@@ -16,11 +18,16 @@ for (const heading of Astro.props.headings) {
 {
   sections.length > 0 && (
     <nav class="toc" aria-label="On this page">
-      <h2>On This Page</h2>
+      <h2 class="eyebrow">On this page</h2>
       <ul>
         {sections.map((section) => (
           <li>
-            <a href={`#${section.slug}`}>{section.text}</a>
+            <a href={`#${section.slug}`}>
+              {/* Sized for the bolder current label, so marking it never changes its width. */}
+              <span class="label" data-text={section.text}>
+                {section.text}
+              </span>
+            </a>
             {section.children.length > 0 && (
               <ul>
                 {section.children.map((child) => (
@@ -33,21 +40,36 @@ for (const heading of Astro.props.headings) {
           </li>
         ))}
       </ul>
+      <span class="progress" aria-hidden="true" />
     </nav>
   )
 }
 
 <script>
   // Scroll spy: marks the section being read, and its parent section, as current.
+  //
+  // A link in the contents is a jump (as bizzy's useActiveSection): the section jumped to is current at
+  // once and stays so while the page scrolls there, so the sections passed on the way don't flicker
+  // through the list, or swing the phone's bar. Once the page is still: if the heading landed near the top
+  // it stays current until the reader scrolls (a short section near the end stops below the reading line,
+  // and shouldn't hand over to the last one); if the reader cut the jump short, reading resumes there.
   const toc = document.querySelector<HTMLElement>(".toc");
+  const list = toc?.querySelector<HTMLElement>(":scope > ul");
+  const progress = toc?.querySelector<HTMLElement>(".progress");
   const links = [...(toc?.querySelectorAll<HTMLAnchorElement>("a") ?? [])];
   const targets = links.map((link) => document.getElementById(decodeURIComponent(link.hash.slice(1))));
+  const bar = matchMedia("(max-width: 63.99rem)");
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  // How long the page must be still before a jump counts as landed.
+  const SETTLE_MS = 150;
   let frame = 0;
+  let jumping = false;
+  let jumpedTo: HTMLElement | null = null;
+  let settle = 0;
 
-  function update() {
-    frame = 0;
-    // The current heading is the last one above a line a quarter of the way down the screen. Short
-    // last sections never scroll up to that line, so over the last stretch of the page the line
+  /** The current heading: the last one above a line a quarter of the way down the screen. */
+  function reading(): HTMLAnchorElement | undefined {
+    // Short last sections never scroll up to that line, so over the last stretch of the page the line
     // glides to the bottom of the screen: they light up in turn, and the last one at the very end.
     const stretch = (innerHeight * 3) / 4;
     const left = document.documentElement.scrollHeight - innerHeight - scrollY;
@@ -56,33 +78,82 @@ for (const heading of Astro.props.headings) {
     targets.forEach((target, i) => {
       if (target && target.getBoundingClientRect().top <= line) current = i;
     });
-    const active = links[current];
+    return links[current];
+  }
+
+  /** Marks a link and its parent section current, and brings it into view in the contents. */
+  function mark(active: HTMLAnchorElement | undefined) {
     const parent = active?.closest("ul ul")?.closest("li")?.querySelector("a");
     for (const link of links) {
       if (link === active || link === parent) link.setAttribute("aria-current", "true");
       else link.removeAttribute("aria-current");
     }
-    // Keep the current link in view when the contents are taller than the screen.
-    if (toc && active) {
-      const top = active.getBoundingClientRect().top - toc.getBoundingClientRect().top + toc.scrollTop;
-      if (top < toc.scrollTop || top > toc.scrollTop + toc.clientHeight - active.offsetHeight) {
-        toc.scrollTop = top - toc.clientHeight / 2;
+    if (!toc || !list) return;
+    if (bar.matches) {
+      // Keep the current section (its top-level link) in the middle of the bar.
+      const shown = (parent ?? active)?.closest("li");
+      if (shown) {
+        const left = shown.offsetLeft - (list.clientWidth - shown.offsetWidth) / 2;
+        if (Math.abs(list.scrollLeft - left) > 4) list.scrollTo({ left, behavior: reduceMotion.matches ? "auto" : "smooth" });
+      }
+    } else if (active) {
+      // Keep the current link in view when the contents are taller than the column.
+      const box = toc.parentElement!;
+      const top = active.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+      if (top < box.scrollTop || top > box.scrollTop + box.clientHeight - active.offsetHeight) {
+        box.scrollTop = top - box.clientHeight / 2;
       }
     }
   }
 
+  /** How far through the post, along the phone bar's foot. It follows every scroll, jumps included. */
+  function showProgress() {
+    const article = document.querySelector("article");
+    if (!bar.matches || !article || !progress) return;
+    const box = article.getBoundingClientRect();
+    progress.style.transform = `scaleX(${Math.min(1, Math.max(0, (innerHeight / 2 - box.top) / box.height))})`;
+  }
+
+  function update() {
+    frame = 0;
+    showProgress();
+    if (!jumping) mark(reading());
+  }
+
+  // Each scroll during a jump puts off landing until the page is still.
+  function holdUntilStill() {
+    clearTimeout(settle);
+    settle = window.setTimeout(() => {
+      jumping = false;
+      const top = jumpedTo?.getBoundingClientRect().top ?? -Infinity;
+      if (top < -1 || top > innerHeight / 2) update();
+    }, SETTLE_MS);
+  }
+
   if (toc) {
-    addEventListener("scroll", () => (frame ||= requestAnimationFrame(update)), { passive: true });
-    addEventListener("resize", () => (frame ||= requestAnimationFrame(update)));
+    for (const [i, link] of links.entries()) {
+      link.addEventListener("click", (event) => {
+        const target = targets[i];
+        if (!target) return;
+        event.preventDefault();
+        jumping = true;
+        jumpedTo = target;
+        mark(link);
+        history.pushState(null, "", link.hash);
+        target.scrollIntoView({ behavior: reduceMotion.matches ? "auto" : "smooth", block: "start" });
+        holdUntilStill();
+      });
+    }
+    const schedule = () => (frame ||= requestAnimationFrame(update));
+    addEventListener("scroll", () => (jumping && holdUntilStill(), schedule()), { passive: true });
+    addEventListener("resize", schedule);
     update();
   }
 </script>
 
 <style>
   h2 {
-    margin: 0 0 0.6rem;
-    font-size: 1rem;
-    font-weight: 700;
+    margin: 0 0 0.75rem;
   }
 
   ul {
@@ -104,21 +175,84 @@ for (const heading of Astro.props.headings) {
   }
 
   a {
-    color: inherit;
+    color: var(--muted);
     text-decoration: none;
   }
 
-  ul ul a {
-    color: var(--muted);
-  }
-
   a:hover {
-    color: var(--accent);
-    text-decoration: underline;
+    color: var(--fg);
   }
 
   a[aria-current="true"] {
-    color: var(--accent);
+    color: var(--fg);
     font-weight: 500;
+  }
+
+  .progress {
+    display: none;
+  }
+
+  /* A phone: one row of sections under the header's place, scrolling sideways. */
+  @media (max-width: 63.99rem) {
+    .toc {
+      position: relative;
+      border-bottom: 1px solid var(--line);
+      background: var(--bg);
+    }
+
+    h2,
+    ul ul {
+      display: none;
+    }
+
+    .toc > ul {
+      display: flex;
+      gap: 0.25rem;
+      height: var(--contents-height);
+      padding-inline: calc(var(--gutter) - 0.6rem);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .toc > ul::-webkit-scrollbar {
+      display: none;
+    }
+
+    .toc > ul > li {
+      display: flex;
+      flex: none;
+    }
+
+    .toc > ul > li > a {
+      display: grid;
+      align-content: center;
+      padding-inline: 0.6rem;
+      white-space: nowrap;
+    }
+
+    /* The label and an invisible bold copy share one cell, so the bold current one is no wider. */
+    .label {
+      display: grid;
+    }
+
+    .label::after {
+      content: attr(data-text);
+      height: 0;
+      overflow: hidden;
+      font-weight: 500;
+      visibility: hidden;
+    }
+
+    .progress {
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      display: block;
+      width: 100%;
+      height: 1px;
+      background: var(--accent);
+      transform: scaleX(0);
+      transform-origin: left;
+    }
   }
 </style>

@@ -1,0 +1,199 @@
+---
+import Icon from "@/components/site/Icon.astro";
+import Quiet from "@/components/site/Quiet.astro";
+import { url } from "@/core/site/url";
+
+// The resume (public/resume.pdf), drawn into the page as sheets of paper with pdf.js: the same in every
+// browser, phones included, with none of a browser viewer's own buttons. Its text can be selected. While
+// pdf.js loads, an A4 sheet waits with the owl drawing itself; if it can't be drawn, the download remains.
+const src = url("resume.pdf");
+---
+
+<section class="resume" aria-labelledby="resume-title">
+  <div class="head">
+    <h2 id="resume-title">Resume</h2>
+    <a class="download" href={src} download="Ho Zhu Yi resume.pdf">
+      <Icon name="download" size={16} />
+      Download PDF
+    </a>
+  </div>
+  <div class="pages" data-src={src}>
+    <div class="sheet waiting">
+      <Quiet pool="busy"><p>Laying out the resume.</p></Quiet>
+    </div>
+  </div>
+  <div class="failed" hidden>
+    <Quiet pool="broken"><p>The resume can't be shown here. <a href={src} download>Download it</a> instead.</p></Quiet>
+  </div>
+</section>
+
+<script>
+  import type { PDFPageProxy } from "pdfjs-dist";
+
+  // The most pixels a page is drawn across: a phone's room to pinch-zoom, within the canvas area iOS allows.
+  const MAX_PIXELS = 2560;
+  const host = document.querySelector<HTMLElement>(".resume .pages");
+
+  async function show(host: HTMLElement) {
+    const lib = await import("@/core/pdf/pdf-render");
+    const pages = await lib.openPdf(host.dataset.src!);
+    const sheets = pages.map((page: PDFPageProxy) => {
+      const { width, height } = lib.pageSize(page);
+      const sheet = document.createElement("div");
+      sheet.className = "sheet";
+      sheet.style.aspectRatio = `${width} / ${height}`;
+      const canvas = document.createElement("canvas");
+      canvas.setAttribute("aria-hidden", "true");
+      const text = document.createElement("div");
+      text.className = "textLayer";
+      sheet.append(canvas, text);
+      // The page's links, over its drawing: the picture can't be clicked, these can.
+      lib.pageLinks(page).then((found) => {
+        for (const link of found) {
+          const a = document.createElement("a");
+          a.className = "pdf-link";
+          a.href = link.url;
+          a.title = link.url.replace(/^mailto:/, "");
+          if (/^https?:/.test(link.url)) {
+            a.target = "_blank";
+            a.rel = "noopener";
+          }
+          Object.assign(a.style, {
+            left: `${link.left}%`,
+            top: `${link.top}%`,
+            width: `${link.width}%`,
+            height: `${link.height}%`,
+          });
+          sheet.append(a);
+        }
+      }, console.error);
+      return { page, width, sheet, canvas, text, cancel: () => {} };
+    });
+    host.replaceChildren(...sheets.map((s) => s.sheet));
+
+    // Drawn at the column's width and the screen's density (twice that on a touch screen, to zoom into),
+    // again only when the column grows by a tenth; narrower, the browser shrinks what was drawn.
+    const zoom = matchMedia("(pointer: coarse)").matches ? 2 : 1;
+    let drawn = 0;
+    new ResizeObserver(([entry]) => {
+      const width = entry.contentRect.width;
+      for (const s of sheets) s.sheet.style.setProperty("--total-scale-factor", String(width / s.width));
+      const pixels = Math.min(Math.ceil(width * devicePixelRatio * zoom), MAX_PIXELS);
+      if (pixels <= drawn * 1.1) return;
+      drawn = pixels;
+      for (const s of sheets) {
+        s.cancel();
+        const draw = lib.drawPage(s.page, s.canvas, s.text, pixels);
+        s.cancel = draw.cancel;
+        draw.done.then((done) => done && s.sheet.classList.add("drawn"), fail);
+      }
+    }).observe(host);
+  }
+
+  function fail(error: unknown) {
+    console.error(error);
+    host!.hidden = true;
+    document.querySelector<HTMLElement>(".resume .failed")!.hidden = false;
+  }
+
+  if (host) show(host).catch(fail);
+</script>
+
+<style>
+  /* The full width of the page's content, as the home page's list. */
+  .resume {
+    margin-top: 4rem;
+  }
+
+  .head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 1.6rem;
+  }
+
+  /* Quiet, like the rest of the page: an outlined pill that fills in on hover. */
+  .download {
+    display: inline-flex;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.4rem 0.95rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--fg);
+    font-size: 0.875rem;
+    text-decoration: none;
+    transition:
+      background-color 0.15s,
+      color 0.15s,
+      border-color 0.15s;
+  }
+
+  .download:hover {
+    border-color: var(--fg);
+    background: var(--fg);
+    color: var(--bg);
+  }
+
+  .pages {
+    display: grid;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+
+  /* A sheet of paper: white in either theme, as a printed page is. */
+  .pages :global(.sheet) {
+    position: relative;
+    overflow: hidden;
+    border-radius: 2px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+  }
+
+  .pages :global(canvas) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .pages :global(.sheet.drawn canvas) {
+    opacity: 1;
+  }
+
+  /* A link from the PDF, over its drawing: invisible until pointed at, then a faint wash of the accent. */
+  .pages :global(.pdf-link) {
+    position: absolute;
+    z-index: 2;
+    border-radius: 2px;
+  }
+
+  .pages :global(.pdf-link:hover),
+  .pages :global(.pdf-link:focus-visible) {
+    background: rgb(7 132 181 / 0.15);
+  }
+
+  /* Before pdf.js says the page's own shape, an A4 sheet in the page's colours holds the place. */
+  .waiting {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 210 / 297;
+    padding: 2rem;
+    background: var(--surface) !important;
+    box-shadow: none !important;
+  }
+
+  .failed {
+    margin-top: 1.5rem;
+  }
+</style>

@@ -1,0 +1,97 @@
+---
+import { seriesOf, type Post } from "@/core/site/posts";
+import { url } from "@/core/site/url";
+
+// Under a post's title: which part of its series this is, opening to every part.
+interface Props {
+  post: Post;
+  posts: Post[];
+}
+
+const series = seriesOf(Astro.props.post, Astro.props.posts);
+---
+
+{
+  series && (
+    <details class="series-nav">
+      <summary>
+        <span class="eyebrow">
+          Part {series.index + 1} of {series.parts.length}
+        </span>
+        <span class="name">{series.name}</span>
+      </summary>
+      <ol>
+        {series.parts.map((part, i) => (
+          <li>
+            {i === series.index ? (
+              <span aria-current="page">{part.data.title}</span>
+            ) : (
+              <a href={url(`posts/${part.id}/`)}>{part.data.title}</a>
+            )}
+          </li>
+        ))}
+      </ol>
+    </details>
+  )
+}
+
+<style>
+  .series-nav {
+    margin: 0 0 1.5rem;
+    border-left: 1px solid var(--line);
+    padding-left: 0.9rem;
+  }
+
+  summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.6rem;
+    align-items: baseline;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  summary .eyebrow {
+    color: var(--accent);
+  }
+
+  .name {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+  }
+
+  .name::after {
+    content: " ▾";
+    color: var(--muted);
+    font-size: 0.8em;
+  }
+
+  [open] .name::after {
+    content: " ▴";
+  }
+
+  ol {
+    display: grid;
+    gap: 0.3rem;
+    margin: 0.6rem 0 0;
+    padding-left: 1.25rem;
+    font-size: 0.95rem;
+  }
+
+  ol ::marker {
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  a {
+    color: var(--fg);
+  }
+
+  [aria-current] {
+    color: var(--muted);
+  }
+</style>

@@ -39,7 +39,9 @@ function played(level: Level): Set<number> {
 function remember(level: Level, indices: Set<number>) {
   try {
     localStorage.setItem(storageKey(level), JSON.stringify([...indices]));
-  } catch {}
+  } catch {
+    // Storage blocked (a private window): played puzzles just aren't remembered.
+  }
 }
 
 /** A puzzle from this level the reader hasn't played, starting over once they've played them all. */
