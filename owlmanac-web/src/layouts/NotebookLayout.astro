@@ -65,6 +65,8 @@ const missing = import.meta.env.DEV
   }
 
   function attach() {
+    // The export shows the frame once it has painted (scripts/notebooks.mjs); by load it surely has.
+    frame?.setAttribute("data-painted", "");
     const doc = frame?.contentDocument;
     if (!doc) return;
     // Not a marimo export (say a 404, which would show the site inside itself): show the notice instead.
@@ -155,6 +157,13 @@ const missing = import.meta.env.DEV
     height: calc(100vh - var(--header-height));
     border: 0;
     background: var(--bg);
+  }
+
+  /* Until the notebook has painted in the site's theme (data-painted, set from inside it), the frame shows
+     its blank first document, which the browser backs with white on a dark page. Invisible, it keeps its
+     size, so nothing moves when it appears. */
+  .notebook:not([data-painted]) {
+    opacity: 0;
   }
 
   .notebook-missing {

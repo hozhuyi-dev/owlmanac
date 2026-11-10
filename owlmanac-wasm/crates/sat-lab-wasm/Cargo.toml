@@ -14,5 +14,9 @@ serde-wasm-bindgen = "0.6"
 sudoku = { path = "../sudoku" }
 wasm-bindgen = "0.2"
 
+# Where `npm run wasm` puts the package, relative to owlmanac-web.
+[package.metadata.owlmanac]
+out = "src/content/posts/from-brute-force-to-cdcl/wasm"
+
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O3"]

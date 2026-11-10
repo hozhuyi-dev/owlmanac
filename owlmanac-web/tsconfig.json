@@ -1,7 +1,7 @@
 {
   "extends": "astro/tsconfigs/strict",
   "include": [".astro/types.d.ts", "**/*"],
-  "exclude": ["dist", "src/content/posts/*/notebook"],
+  "exclude": ["dist", "src/content/posts/*/notebook", "notebook-runtime"],
   "compilerOptions": {
     "jsx": "preserve",
     "paths": {

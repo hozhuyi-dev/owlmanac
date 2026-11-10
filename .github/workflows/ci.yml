@@ -1,11 +1,17 @@
 name: CI
 
 # Every pull request into main is checked here, and every deploy runs the same checks first (deploy.yml
-# calls this workflow). A pull request checks only the parts it changes; a deploy checks everything.
+# calls this workflow). A pull request checks only the parts it changes; a deploy checks everything, and the
+# site the web job builds is the one deployed, so it's built once.
 on:
   pull_request:
     branches: [main]
   workflow_call:
+    inputs:
+      deploy:
+        description: Upload the built site for GitHub Pages.
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.sha }}
@@ -94,6 +100,19 @@ jobs:
           cache: npm
           cache-dependency-path: owlmanac-web/package-lock.json
       - run: npm ci
+      # The last run's generated WASM packages, notebook exports and marimo runtime, each stamped with a hash
+      # of its inputs (scripts/stamp.mjs), so `npm run wasm` and `npm run notebooks` redo only what changed;
+      # and Astro's cache of resized images. After npm ci, which empties node_modules.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            owlmanac-web/src/wasm
+            owlmanac-web/src/content/posts/*/wasm
+            owlmanac-web/src/content/posts/*/notebook
+            owlmanac-web/notebook-runtime
+            owlmanac-web/node_modules/.astro
+          key: generated-${{ github.sha }}
+          restore-keys: generated-
       # The type check reads the generated WASM packages, so they come first.
       - name: Build WASM
         run: npm run wasm
@@ -105,3 +124,10 @@ jobs:
         run: npm test
       - name: Build
         run: npm run notebooks && npx astro build
+      - name: Post limits
+        run: npm run check:posts
+      - name: Upload the site for Pages
+        if: inputs.deploy
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: owlmanac-web/dist

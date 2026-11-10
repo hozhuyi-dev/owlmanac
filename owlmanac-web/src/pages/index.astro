@@ -189,7 +189,7 @@ const allTopics = topics(posts);
     transform: translateY(-50%);
   }
 
-  /* Topics: one row, scrolling sideways on a phone. */
+  /* Topics: one row, scrolling sideways on a phone; wrapped wider, where a mouse can't swipe a hidden scroller. */
   .chips {
     display: flex;
     gap: 0.4rem;
@@ -198,6 +198,15 @@ const allTopics = topics(posts);
     overflow-x: auto;
     list-style: none;
     scrollbar-width: none;
+  }
+
+  @media (min-width: 40rem) {
+    .chips {
+      flex-wrap: wrap;
+      margin: 0;
+      padding: 0;
+      overflow-x: visible;
+    }
   }
 
   .chips button {

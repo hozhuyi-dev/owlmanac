@@ -9,8 +9,18 @@ import tseslint from "typescript-eslint";
 // Lint for mistakes, not layout: the recommended rules of ESLint, typescript-eslint and Astro, and Vue's
 // essential ones (its recommended set mostly formats templates). CI runs it (npm run lint).
 export default defineConfig(
-  // Generated: WASM packages (npm run wasm), notebook exports (npm run notebooks), the build, Astro's types.
-  { ignores: ["dist/**", ".astro/**", "src/wasm/*/**", "src/content/posts/*/wasm/**", "src/content/posts/*/notebook/**"] },
+  // Generated: WASM packages (npm run wasm), notebook exports and marimo's runtime (npm run notebooks), the
+  // build, Astro's types.
+  {
+    ignores: [
+      "dist/**",
+      ".astro/**",
+      "src/wasm/*/**",
+      "src/content/posts/*/wasm/**",
+      "src/content/posts/*/notebook/**",
+      "notebook-runtime/**",
+    ],
+  },
   js.configs.recommended,
   tseslint.configs.recommended,
   vue.configs["flat/essential"],

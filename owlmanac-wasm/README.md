@@ -15,7 +15,7 @@ The heavy computations behind Owlmanac's posts, in Rust. Each crate keeps its de
 ## Rules
 
 - One vocabulary per layer, as in the table.
-- A WASM crate per post, so a page downloads only what it uses.
+- A WASM crate per post, so a page downloads only what it uses. Its `Cargo.toml` names where its package goes (`[package.metadata.owlmanac] out`, relative to `owlmanac-web`); that's how `npm run wasm` finds it.
 - Modules use `data.rs` beside `data/`, not `data/mod.rs`.
 - Bindings return typed arrays for bulk data (event streams, grid overlays) and plain JS objects through `serde-wasm-bindgen` for small results (an explanation, a verdict).
 - Single-threaded, in a Web Worker: threads need COOP/COEP headers, which GitHub Pages can't send. A running WASM call can't be interrupted, so anything long runs in budgeted slices and yields between them.
