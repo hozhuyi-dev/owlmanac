@@ -2,12 +2,12 @@
 @import "@fontsource-variable/jetbrains-mono";
 
 /*
- * Theme tokens, each light-dark(light, dark). The reader's system picks the theme unless the theme
- * switch sets data-theme on <html>. Charts read these too (axes use currentColor), so one chart serves
- * both themes.
+ * Theme tokens, each light-dark(light, dark). The site is dark by default; the theme switch sets
+ * data-theme on <html> to light, or to auto to follow the reader's system. Charts read these too (axes
+ * use currentColor), so one chart serves both themes.
  */
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
   --bg: light-dark(#ffffff, #2b2b2b);
   --surface: light-dark(#f2f2f3, #363636);
   --fg: light-dark(#0c0c0c, #fafafa);
@@ -27,8 +27,8 @@
   color-scheme: light;
 }
 
-:root[data-theme="dark"] {
-  color-scheme: dark;
+:root[data-theme="auto"] {
+  color-scheme: light dark;
 }
 
 *,

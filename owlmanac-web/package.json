@@ -9,10 +9,11 @@
     "wasm": "npm run wasm:star-battle && npm run wasm:sat-lab",
     "wasm:star-battle": "wasm-pack build ../owlmanac-wasm/crates/star-battle-wasm --target web --release --out-dir ../../../owlmanac-web/src/wasm/star-battle",
     "wasm:sat-lab": "wasm-pack build ../owlmanac-wasm/crates/sat-lab-wasm --target web --release --out-dir ../../../owlmanac-web/src/content/posts/from-brute-force-to-cdcl/wasm",
+    "notebooks": "node scripts/notebooks.mjs",
     "covers": "node scripts/covers.mjs",
-    "predev": "npm run wasm",
+    "predev": "npm run wasm && npm run notebooks",
     "dev": "astro dev",
-    "prebuild": "npm run wasm",
+    "prebuild": "npm run wasm && npm run notebooks",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro"

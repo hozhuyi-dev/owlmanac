@@ -1,0 +1,23 @@
+[project]
+name = "owlmanac-notebooks"
+version = "0.0.0"
+description = "Owlmanac's marimo notebooks: a folder per post, producing its data or being the post itself, and notebooks that only explore."
+requires-python = ">=3.12"
+dependencies = [
+    # Pinned: a notebook post's export runs this marimo's frontend, which loads the same marimo in Pyodide.
+    "marimo==0.25.2",
+    "altair",
+    "astropy",
+    "astropy-healpix",
+    "astroquery",
+    "pandas",
+    "polars",
+    "pyarrow",
+]
+
+[tool.uv]
+package = false
+
+# Follow the reader's theme; inside a post, the export makes this follow the site's theme switch.
+[tool.marimo.display]
+theme = "system"

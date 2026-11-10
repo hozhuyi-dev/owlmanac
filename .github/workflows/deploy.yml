@@ -23,6 +23,8 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: wasm-pack@0.14.0
+      # npm run build exports notebook posts with marimo, through uv.
+      - uses: astral-sh/setup-uv@v6
       - uses: withastro/action@v6
         with:
           path: ./owlmanac-web

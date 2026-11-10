@@ -1,5 +1,6 @@
 ---
 import { render } from "astro:content";
+import NotebookLayout from "@/layouts/NotebookLayout.astro";
 import PostLayout from "@/layouts/PostLayout.astro";
 import { getPosts } from "@/core/site/posts";
 
@@ -12,6 +13,12 @@ const { post } = Astro.props;
 const { Content, headings } = await render(post);
 ---
 
-<PostLayout post={post} headings={headings}>
-  <Content />
-</PostLayout>
+{
+  post.data.notebook ? (
+    <NotebookLayout post={post} />
+  ) : (
+    <PostLayout post={post} headings={headings}>
+      <Content />
+    </PostLayout>
+  )
+}

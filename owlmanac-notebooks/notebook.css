@@ -1,0 +1,154 @@
+/*
+ * The site's look for a marimo notebook: its fonts, and its theme tokens (global.css) mapped onto
+ * marimo's. marimo turns dark mode on with body.dark, which sets color-scheme, so light-dark() follows it.
+ * A notebook post links it with css_file="../notebook.css". Fonts are copied beside the export by
+ * owlmanac-web/scripts/notebooks.mjs; run locally, the notebook falls back to system fonts.
+ */
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(fonts/inter-latin-wght-normal.woff2) format("woff2-variations");
+}
+
+@font-face {
+  font-family: "JetBrains Mono Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url(fonts/jetbrains-mono-latin-wght-normal.woff2) format("woff2-variations");
+}
+
+:root:root {
+  --site-bg: light-dark(#ffffff, #2b2b2b);
+  --site-surface: light-dark(#f2f2f3, #363636);
+  --site-fg: light-dark(#0c0c0c, #fafafa);
+  --site-muted: light-dark(#555555, #bdbdbd);
+  --site-line: light-dark(#dedee0, #4a4a4a);
+  --site-accent: light-dark(#0784b5, #9bd4e4);
+
+  --marimo-text-font: "Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --marimo-heading-font: var(--marimo-text-font);
+  --marimo-monospace-font: "JetBrains Mono Variable", ui-monospace, Menlo, Consolas, monospace;
+
+  --background: var(--site-bg);
+  --foreground: var(--site-fg);
+  --card: var(--site-bg);
+  --card-foreground: var(--site-fg);
+  --popover: var(--site-bg);
+  --popover-foreground: var(--site-fg);
+  --muted: var(--site-surface);
+  --muted-foreground: var(--site-muted);
+  --secondary: var(--site-surface);
+  --secondary-foreground: var(--site-fg);
+  --accent: var(--site-surface);
+  --accent-foreground: var(--site-fg);
+  --border: var(--site-line);
+  --primary: var(--site-accent);
+  --primary-foreground: var(--site-bg);
+  --ring: var(--site-accent);
+  --link: var(--site-accent);
+  --link-visited: var(--site-accent);
+}
+
+body {
+  background: var(--site-bg);
+}
+
+/* Prose reads like the rest of the site: light body text, semibold headings. */
+.markdown {
+  font-weight: 300;
+  line-height: 1.75;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.markdown strong {
+  font-weight: 600;
+}
+
+input[type="range"] {
+  accent-color: var(--site-accent);
+}
+
+/*
+ * Inside a post (.in-post, set by the export), the frame grows to the notebook's height and the page
+ * scrolls, so marimo's own scroller never does, in either direction: a sideways swipe on a phone must
+ * not move the whole notebook. Wide content scrolls in its own box: code, tables, charts.
+ */
+.in-post #App {
+  overflow: hidden;
+}
+
+/*
+ * The page's theme from the first paint (.site-dark, set by the export before marimo runs): the site's
+ * tokens above follow color-scheme, so the notebook never flashes white in dark mode, and the frame's
+ * scheme matches the page's, so the browser paints no backdrop behind it.
+ */
+html.in-post {
+  color-scheme: light;
+  background: var(--site-bg);
+}
+
+html.in-post.site-dark {
+  color-scheme: dark;
+}
+
+.in-post .output-area {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* marimo's notebook menu (top right): an outline pill like the site's theme switch, not a grey tile. */
+[data-testid="notebook-actions-dropdown"] > button,
+[data-testid="notebook-actions-dropdown"] > button:hover {
+  border: 1px solid var(--site-line);
+  border-radius: 999px;
+  background: var(--site-bg);
+  box-shadow: none;
+  color: var(--site-muted);
+}
+
+[data-testid="notebook-actions-dropdown"] > button:hover,
+[data-testid="notebook-actions-dropdown"] > button[data-state="open"] {
+  border-color: var(--site-accent);
+  color: var(--site-accent);
+}
+
+/*
+ * marimo's "made with marimo" badge, fixed to the frame's bottom right. The frame is as tall as the
+ * notebook, so it sits at the notebook's end: centre it there as a quiet sign-off in the site's style.
+ */
+[data-testid="watermark"] {
+  left: 0;
+  bottom: 1.5rem;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+[data-testid="watermark"] > a,
+[data-testid="watermark"] > a:hover {
+  pointer-events: auto;
+  gap: 0.4rem;
+  padding: 0.3rem 0.85rem;
+  border: 1px solid var(--site-line);
+  border-radius: 999px;
+  background: none;
+  color: var(--site-muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+  letter-spacing: normal;
+}
+
+[data-testid="watermark"] > a:hover {
+  border-color: var(--site-accent);
+  color: var(--site-accent);
+}

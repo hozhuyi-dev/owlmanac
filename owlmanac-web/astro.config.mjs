@@ -5,6 +5,7 @@ import { defineConfig } from "astro/config";
 import vue from "@astrojs/vue";
 import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";
+import notebooks from "./integrations/notebooks.mjs";
 
 // https://astro.build/config
 export default defineConfig({
@@ -12,7 +13,7 @@ export default defineConfig({
   site: "https://hozhuyi-dev.github.io",
   base: "/owlmanac",
   trailingSlash: "always",
-  integrations: [vue(), mdx(), sitemap()],
+  integrations: [vue(), mdx(), sitemap(), notebooks()],
   markdown: {
     shikiConfig: { themes: { light: "github-light", dark: "github-dark" }, defaultColor: false },
   },

@@ -1,0 +1,237 @@
+---
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import type { CollectionEntry } from "astro:content";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import Icon from "@/components/site/Icon.astro";
+import { formatDate } from "@/core/site/posts";
+
+// A notebook post: the site's header and the post's title, then its marimo notebook (notebook/, a WASM
+// export served beside the page) at full width. The page and notebook share an origin, so the frame
+// grows to the notebook's height and the page scrolls as one.
+interface Props {
+  post: CollectionEntry<"posts">;
+}
+
+const { post } = Astro.props;
+const { title, description, pubDate, updatedDate, cover } = post.data;
+// The export is generated (npm run notebooks); without it the frame would load the site's own 404 page.
+const exported = existsSync(join(process.cwd(), "src/content/posts", post.id, "notebook", "index.html"));
+const missing = import.meta.env.DEV
+  ? "This notebook hasn't been exported yet: run npm run notebooks in owlmanac-web, then reload."
+  : "This notebook couldn't be loaded. Try reloading the page.";
+---
+
+<BaseLayout title={title} description={description} image={cover?.src}>
+  <header class="container">
+    <h1>{title}</h1>
+    <p class="meta">
+      <span><Icon name="calendar" /><time datetime={pubDate.toISOString()}>{formatDate(pubDate)}</time></span>
+      {
+        updatedDate && (
+          <span>
+            <Icon name="updated" />
+            Last updated on <time datetime={updatedDate.toISOString()}>{formatDate(updatedDate)}</time>
+          </span>
+        )
+      }
+      <span class="muted">A marimo notebook, run in your browser.</span>
+    </p>
+  </header>
+  <p class="container notebook-missing figure-status failed" hidden={exported}>{missing}</p>
+  {
+    exported && (
+      <>
+        <iframe class="notebook" src="notebook/" title={title} />
+        <div class="notebook-toast" role="status" aria-live="polite" data-state="loading">
+          <span class="spinner" aria-hidden="true" />
+          <span class="text">Loading Python in your browser. The outputs are already here; inputs work once it's ready.</span>
+        </div>
+      </>
+    )
+  }
+</BaseLayout>
+
+<script>
+  const frame = document.querySelector<HTMLIFrameElement>("iframe.notebook");
+
+  // marimo scrolls inside #App, which fills the frame. Growing the frame to #App's content height lets
+  // the page scroll instead, so there's one scrollbar and the site's footer follows the notebook.
+  function fit(app: HTMLElement) {
+    const content = [...app.children].reduce((bottom, child) => {
+      const box = child.getBoundingClientRect();
+      return Math.max(bottom, box.bottom - app.getBoundingClientRect().top + app.scrollTop);
+    }, 0);
+    if (content > 0 && frame) frame.style.height = `${Math.ceil(content)}px`;
+  }
+
+  function attach() {
+    const doc = frame?.contentDocument;
+    if (!doc) return;
+    // Not a marimo export (say a 404, which would show the site inside itself): show the notice instead.
+    if (!doc.querySelector("marimo-code")) {
+      frame!.remove();
+      document.querySelector(".notebook-toast")?.remove();
+      document.querySelector<HTMLElement>(".notebook-missing")!.hidden = false;
+      return;
+    }
+    // #App appears once marimo mounts; then refit whenever any of its content changes size.
+    const watch = new MutationObserver(() => {
+      const app = doc.getElementById("App");
+      if (!app) return;
+      watch.disconnect();
+      const resize = new ResizeObserver(() => fit(app));
+      const observeAll = () => [...app.children].forEach((child) => resize.observe(child));
+      observeAll();
+      new MutationObserver(observeAll).observe(app, { childList: true });
+      fit(app);
+    });
+    watch.observe(doc.body, { childList: true, subtree: true });
+    followKernel(doc);
+  }
+
+  // The export shows outputs embedded at build time; inputs work only once Python has loaded and rerun the
+  // cells. marimo marks that run (pinned version): the connection opens, then a loading indicator and
+  // "stale" outputs appear while cells rerun, and clear when they finish.
+  const toast = document.querySelector<HTMLElement>(".notebook-toast");
+  const MESSAGES = {
+    loading: "Loading Python in your browser. The outputs are already here; inputs work once it's ready.",
+    running: "Running the notebook…",
+    ready: "The notebook is live: move the sliders.",
+    slow: "Python is slow to load. The outputs are still accurate; inputs will work once it's ready.",
+  };
+
+  function show(state: keyof typeof MESSAGES) {
+    if (!toast || toast.dataset.state === state) return;
+    toast.dataset.state = state;
+    toast.querySelector(".text")!.textContent = MESSAGES[state];
+    if (state === "ready") setTimeout(() => (toast.hidden = true), 4000);
+  }
+
+  function followKernel(doc: Document) {
+    const started = Date.now();
+    let sawRun = false;
+    let idleSince = 0;
+    const timer = setInterval(() => {
+      const open = doc.querySelector('[data-connection-state="OPEN"]');
+      const busy = doc.querySelector('[data-testid="loading-indicator"], [title="This output is stale"]');
+      if (busy) sawRun = true;
+      if (!open || !sawRun) {
+        show(Date.now() - started > 120_000 ? "slow" : "loading");
+      } else if (busy) {
+        idleSince = 0;
+        show("running");
+      } else if ((idleSince ||= Date.now()) && Date.now() - idleSince > 1000) {
+        show("ready");
+        clearInterval(timer);
+      }
+    }, 250);
+  }
+
+  // The frame can finish loading before this script runs (a cached visit), so attach now if it has.
+  if (frame) {
+    const doc = frame.contentDocument;
+    if (doc?.readyState === "complete" && doc.URL !== "about:blank") attach();
+    else frame.addEventListener("load", attach, { once: true });
+  }
+</script>
+
+<style>
+  header {
+    padding-top: var(--page-top);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(1.875rem, 1.25rem + 2.5vw, 2.5rem);
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.25rem;
+    margin: 1rem 0 0;
+    font-size: 0.9rem;
+  }
+
+  .meta span {
+    display: inline-flex;
+    gap: 0.4rem;
+    align-items: center;
+  }
+
+  .meta svg {
+    width: 1.1em;
+    height: 1.1em;
+    color: var(--accent);
+  }
+
+  .notebook {
+    display: block;
+    width: 100%;
+    height: calc(100vh - var(--header-height));
+    border: 0;
+    background: var(--bg);
+  }
+
+  .notebook-missing {
+    padding-block: 2rem;
+  }
+
+  .notebook-toast {
+    position: fixed;
+    bottom: 1rem;
+    left: 50%;
+    z-index: 20;
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    width: max-content;
+    max-width: calc(100vw - 2rem);
+    padding: 0.55rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--fg);
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--fg) 12%, transparent);
+    font-size: 0.875rem;
+    transform: translateX(-50%);
+  }
+
+  .notebook-toast[hidden] {
+    display: none;
+  }
+
+  .spinner {
+    flex: none;
+    width: 0.9rem;
+    height: 0.9rem;
+    border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  .notebook-toast[data-state="ready"] .spinner {
+    border-color: var(--accent);
+    animation: none;
+  }
+
+  .notebook-toast[data-state="slow"] .spinner {
+    animation-duration: 2s;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .spinner {
+      animation-duration: 3s;
+    }
+  }
+</style>

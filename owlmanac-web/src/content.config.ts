@@ -20,6 +20,8 @@ const posts = defineCollection({
       coverAlt: z.string().optional(),
       coverCredit: z.string().optional(),
       draft: z.boolean().default(false),
+      // The post is owlmanac-notebooks/<notebook>/notebook.py, exported to the post's notebook/ and shown full width.
+      notebook: z.string().optional(),
     }),
 });
 

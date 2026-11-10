@@ -7,8 +7,8 @@ This README is the memory, for me and for AI assistants. Keep it short; record l
 ## Design principles
 
 1. **A post is a folder.** Its prose, components and data live together in `owlmanac-web/src/content/posts/<slug>/`. Nothing a post needs goes in `public/`.
-2. **Producers make, posts consume.** Two folders produce what posts need, each with its own README: `owlmanac-explore` (Python and marimo: data from exploration, and notebooks) and `owlmanac-wasm` (Rust: WASM engines, and native tools that write data). A post mixes whatever it needs; each generated thing has one owner and one command to regenerate it, listed in [POSTS.md](POSTS.md). The site never runs Python or Rust: readers' browsers run the WASM, query the data, and draw the charts (Observable Plot).
-3. **One chart, both themes.** Theme colours and fonts are tokens on `:root` in `global.css`, each colour a `light-dark(light, dark)` pair. The header's theme switch sets `data-theme` on `<html>`; without it the reader's system decides. Charts take axes and text from `currentColor` and tooltips from `--plot-background`, never a light and a dark copy. Continuous colour scales (turbo, viridis) are chosen per chart; series take muted colours in order from `core/plot/palette.ts`, checked against both themes' backgrounds.
+2. **Producers make, posts consume.** Two folders produce what posts need, each with its own README: `owlmanac-notebooks` (marimo: a notebook per post that makes its data or is the post itself, and notebooks that only explore) and `owlmanac-wasm` (Rust: WASM engines, and native tools that write data). A post mixes whatever it needs; each generated thing has one owner and one command to regenerate it, listed in [POSTS.md](POSTS.md). No server runs Python or Rust: readers' browsers run the WASM, query the data, and draw the charts (Observable Plot), and run a notebook post's Python (Pyodide).
+3. **One chart, both themes.** Theme colours and fonts are tokens on `:root` in `global.css`, each colour a `light-dark(light, dark)` pair. The site is dark by default; the header's theme switch sets `data-theme` on `<html>` to `light`, or to `auto` to follow the reader's system. Where one theme must compromise, dark wins. Charts take axes and text from `currentColor` and tooltips from `--plot-background`, never a light and a dark copy. Continuous colour scales (turbo, viridis) are chosen per chart; series take muted colours in order from `core/plot/palette.ts`, checked against both themes' backgrounds.
 4. **Figures hold still.** An interactive figure takes its final size on first paint, before data or WASM arrives, at any width. A chart sets `--chart-height` to the height it draws at and shows its axes at once; a table renders every row with fixed column widths and tabular figures; one status line (`.figure-status`), always present, carries loading, progress and errors. Nothing appears, disappears or changes width as results come in, and nothing overflows a phone's screen.
 5. **Static until it can't be.** GitHub Pages serves everything. A folder for infra or a backend arrives only with the first post that needs it (see Later).
 
@@ -17,7 +17,7 @@ This README is the memory, for me and for AI assistants. Keep it short; record l
 | Folder | What | Stack |
 | --- | --- | --- |
 | `owlmanac-web` | The site | Astro, MDX, Vue islands, Observable Plot, DuckDB-WASM |
-| `owlmanac-explore` | Producer: data from exploration, and notebooks | marimo, uv, Polars, Astropy |
+| `owlmanac-notebooks` | Producer: posts' data, and notebook posts; see its [README](owlmanac-notebooks/README.md) | marimo, uv, Polars, Altair, DuckDB, Astropy |
 | `owlmanac-wasm` | Producer: WASM engines, and native tools that write data; see its [README](owlmanac-wasm/README.md) | Rust, wasm-bindgen, Web Workers |
 
 ## Layout
@@ -30,11 +30,16 @@ owlmanac-web/
   src/content/posts/<slug>/   the post is the feature: index.mdx, its Vue components, cover image, and
                               data/      committed data files, from one documented command
                               wasm/      a generated WASM package used only by this post (not committed)
+                              notebook/  a notebook post's generated marimo export (not committed)
   src/wasm/<crate>/           a generated WASM package two or more posts share (not committed)
-  src/content.config.ts       post frontmatter: title, description, pubDate, updatedDate, tags, cover, coverAlt, coverCredit, draft
+  src/content.config.ts       post frontmatter: title, description, pubDate, updatedDate, tags, cover, coverAlt, coverCredit, draft, notebook
   scripts/covers.mjs          draws posts' covers from their own data (npm run covers)
+  scripts/notebooks.mjs       exports notebook posts into their notebook/ (npm run notebooks)
+  integrations/notebooks.mjs  serves each notebook/ in dev, and copies it into the build for published posts
   src/pages/                  routes only: home, posts/[slug], about, rss.xml, 404
-  src/layouts/                BaseLayout (<html>, header, footer), PostLayout (article header, cover, contents)
+  src/layouts/                BaseLayout (<html>, header, footer), PostLayout (article header, cover, contents),
+                              NotebookLayout (title, then the notebook full width, grown to its height, and a
+                              toast while Python loads)
   src/components/site/        the site's own: PostCard, TableOfContents, ThemeSwitch, Icon
   src/components/post/        what MDX uses across posts: Figure (numbered captions)
   src/core/site/              build time: posts.ts, url.ts (base-aware links)
@@ -43,16 +48,17 @@ owlmanac-web/
   src/core/worker/            browser: lazy-worker.ts (one Comlink worker per page, started by the first call)
   src/core/async/             browser: use-task.ts (pending, error, latest call wins)
   src/styles/global.css       theme tokens, prose, charts
-owlmanac-explore/
-  <slug>.py                   marimo notebook: queries, then writes the post's data/
-  data/<slug>/                cached query results, so notebooks run offline
+owlmanac-notebooks/           uv project (marimo pinned); its README holds the notebook conventions
+  <slug>/notebook.py          a post's marimo notebook: makes its data, or is the post itself
+  <slug>/data/                cached query results, so notebooks run offline (and in the browser)
+  notebook.css                the site's fonts and theme tokens, mapped onto marimo's
 owlmanac-wasm/                Cargo workspace; its README and each crate's hold their design notes
 .github/workflows/deploy.yml  builds owlmanac-wasm and owlmanac-web, deploys to GitHub Pages on push to main
 ```
 
 ## Writing a post
 
-1. Make the post's `data/` with whichever producer fits: a marimo notebook in `owlmanac-explore/<slug>.py`, or a Rust binary in `owlmanac-wasm`. Write only what the charts read. Add the post's row to [POSTS.md](POSTS.md).
+1. Make the post's `data/` with whichever producer fits: a marimo notebook in `owlmanac-notebooks/<slug>/notebook.py`, or a Rust binary in `owlmanac-wasm`. Write only what the charts read. Add the post's row to [POSTS.md](POSTS.md). Or make the notebook the post: give the post folder an `index.md` with frontmatter only and `notebook: <slug>`, and the page is that notebook (see the notebooks [README](owlmanac-notebooks/README.md)); steps 2–4 don't apply.
 2. Write `index.mdx`, and put each chart or interactive figure beside it as a Vue component.
 3. Small data (up to a few thousand rows) is JSON, imported into the component: `import strategies from "./data/strategies.json"`. Big or SQL-shaped data is parquet, read through DuckDB: `import stars from "./data/stars.parquet?url"`, passed to a chart that runs `query(\`... FROM ${await parquet(src)}\`)` from `@/core/duckdb/duckdb`. DuckDB-WASM is tens of megabytes, so a post pays for it only when it needs it.
 4. A WASM engine runs in a worker beside the post (`engine/`), built from its crate by an `npm run wasm:<name>` script. Use figures as `<Figure caption="…"><Chart client:visible /></Figure>`; `client:visible` means nothing heavy downloads until a figure scrolls into view.
@@ -65,7 +71,8 @@ owlmanac-wasm/                Cargo workspace; its README and each crate's hold 
 ```sh
 cd owlmanac-web && npm run dev                          # http://localhost:4321/owlmanac/
 cd owlmanac-web && npm run build && npm run preview     # the production build
-uv run marimo edit --sandbox owlmanac-explore/<slug>.py # explore
+cd owlmanac-notebooks && uv run marimo edit <slug>/notebook.py  # write a notebook
+cd owlmanac-web && npm run notebooks                    # export notebook posts (dev and build run it first)
 cd owlmanac-wasm && cargo test --workspace              # the Rust crates
 ```
 
@@ -83,16 +90,14 @@ Each post's regenerate commands are in [POSTS.md](POSTS.md).
 - Each island is its own Vue app, so islands share state through module-level singletons, not `provide/inject`. Islands also render at build, where `Worker` doesn't exist: create workers on first use, never at import.
 - No TanStack Query. Results are deterministic and sessions stateful, so posts use a small latest-wins task helper; Comlink carries worker calls.
 - WASM packages are generated by `npm run wasm`, which runs every `wasm:<name>` script and which `npm run dev` and `npm run build` run first, so both need Rust and wasm-pack. They aren't committed.
+- Notebook posts are exported by `npm run notebooks`, which `npm run dev` and `npm run build` also run first, so both need uv. A draft's export is never copied into the build.
 
 ## Later, only when needed
 
-- **Notebook posts:** a marimo notebook published as a post, run in the reader's browser, inside the normal post layout. Its export would land in the post's `notebook/`, generated like `wasm/`. First candidate: Mapping the Milky Way.
 - **`owlmanac-infra/`** (CDK, TypeScript): S3 + CloudFront for datasets past GitHub's 100 MB file limit, read by DuckDB-WASM with range requests (CORS exposing `Content-Range`).
 - **`owlmanac-lambda/`** (Go): only for what must hold a secret or state, e.g. a Claude-powered feature or a newsletter.
 - Comments: giscus (GitHub Discussions), no backend.
 
 ## Now
 
-- Port the remaining post from code-and-conundrums (GitLab): Gaia DR3 Primer. High-Performance SEO Blogging described the Quarto pipeline this repo replaces, so it stays behind.
-- Point the old GitLab Pages URLs here.
-- A three-post series on the CDCL solver in `owlmanac-wasm/`, one or two ideas each: "From Brute Force to CDCL", "Making Puzzles with a SAT Oracle" (proving there's one solution, and difficulty as reasoning depth), and "Star Battle" (the game, on a pool of 2,000 Easy and 2,000 Hard puzzles, with hints and explanations). All three are out of draft, and go live with the next push to main.
+Nothing in progress. Mapping the Milky Way is now a notebook post, the first; it replaced the MDX version (still in git history).

@@ -1,7 +1,8 @@
 ---
 import Icon from "@/components/site/Icon.astro";
 
-// "auto" follows the reader's system; the choice is kept in localStorage and applied in BaseLayout's head.
+// The site is dark unless the reader picks light, or "auto" to follow their system; the choice is kept in
+// localStorage and applied in BaseLayout's head.
 const themes = [
   { value: "auto", icon: "auto", label: "Follow system theme" },
   { value: "light", icon: "sun", label: "Light theme" },
@@ -27,17 +28,15 @@ const themes = [
   }
 
   function current(): string {
-    return document.documentElement.dataset.theme ?? "auto";
+    return document.documentElement.dataset.theme ?? "dark";
   }
 
   buttons.forEach((button) =>
     button.addEventListener("click", () => {
       const theme = button.dataset.themeValue!;
-      if (theme === "auto") delete document.documentElement.dataset.theme;
-      else document.documentElement.dataset.theme = theme;
+      document.documentElement.dataset.theme = theme;
       try {
-        if (theme === "auto") localStorage.removeItem("theme");
-        else localStorage.setItem("theme", theme);
+        localStorage.setItem("theme", theme);
       } catch {}
       show(theme);
     }),
