@@ -1,8 +1,8 @@
 ---
 import { Image } from "astro:assets";
 import type { CollectionEntry } from "astro:content";
-import { formatDate } from "@/lib/posts";
-import { url } from "@/lib/url";
+import { formatDate } from "@/core/site/posts";
+import { url } from "@/core/site/url";
 
 interface Props {
   post: CollectionEntry<"posts">;

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import * as Plot from "@observablehq/plot";
 import { ref } from "vue";
-import { parquet, query } from "@/lib/duckdb";
-import { usePlot } from "@/lib/plot";
+import { parquet, query } from "@/core/duckdb/duckdb";
+import { usePlot } from "@/core/plot/use-plot";
 
 // A square patch of sky centred on (ra, dec), `width` degrees across.
 const props = defineProps<{ src: string; ra: number; dec: number; width: number }>();

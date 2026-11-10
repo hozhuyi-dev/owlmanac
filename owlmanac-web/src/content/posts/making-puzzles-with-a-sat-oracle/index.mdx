@@ -1,0 +1,75 @@
+---
+title: "Making Puzzles with a SAT Oracle"
+description: "A good puzzle has exactly one answer. Proving there isn't a second one is the solver's real job. Here's how 4,000 Star Battle puzzles were made, and graded."
+pubDate: 2026-11-10T09:00:00Z
+cover: ./cover.png
+coverAlt: "A 10×10 Star Battle grid with coloured regions, its chosen stars, and hollow stars marking a second solution still to be ruled out"
+tags: ["Algorithms", "Rust", "WebAssembly"]
+draft: false
+---
+
+import Figure from "@/components/post/Figure.astro";
+import PaintRegions from "./figures/PaintRegions.vue";
+import LiveGenerator from "./figures/LiveGenerator.vue";
+import StrategyCharts from "./figures/StrategyCharts.vue";
+import LearnedRules from "./figures/LearnedRules.vue";
+
+In the [last post](../from-brute-force-to-cdcl/) I built a SAT solver and pointed it at puzzles someone else had made. This time it makes them. The Star Battle game in the next post needed 4,000 puzzles, half of them Easy and half Hard, and I wasn't going to draw them by hand.
+
+Star Battle is played on a grid split into regions. Each row, each column and each region holds the same number of stars, two on the 10×10 grids here, and no two stars may touch, not even at a corner. Making one sounds easy: draw some regions. The catch is that a puzzle is only any good if it has exactly one solution.
+
+## Finding one versus ruling out the rest
+
+Asking a SAT solver whether a puzzle has a solution is what it's built for. It either finds one, or it proves there's none. But "is this a good puzzle?" asks something else: is there a *second* solution?
+
+The trick is to ask twice. Find a solution, then add a clause saying "not that one", and ask again. If the solver finds another, the puzzle is ambiguous. If it says there's nothing, then the first solution was the only one, and the solver's "no" is a proof, the same kind of proof as [the last post's](../from-brute-force-to-cdcl/#can-you-trust-it) "this has no solution". This one question, "is there exactly one?", is the oracle in the title. Everything below is a way of asking it cleverly.
+
+You can try it on a small 6×6 puzzle with one star per row, column and region. Pick a colour and paint over some cells to reshape the regions. The solver answers after every stroke: no solution, exactly one, or two or more, with a second solution drawn in hollow stars where it differs from the first.
+
+<Figure caption="Paint the regions. The solver checks for a second solution after every change.">
+  <PaintRegions client:visible />
+</Figure>
+
+It doesn't take much to break a puzzle. Most small changes either leave no solution at all, or open up a second one.
+
+## Three ways to ask the oracle
+
+**Random regions.** The simplest method: grow ten random regions, ask the oracle, and keep the layout if it's unique. It works, but only about one random layout in 400 is unique, so it spends most of its time throwing layouts away.
+
+**Choose the stars first.** Turn it around. Pick where the twenty stars go first, obeying the row, column and touching rules, then group them into nearby pairs and grow a region around each pair. Now the intended solution is valid by construction, so a layout can never fail by having *no* solution, only by having more than one. That alone makes it about six times faster. It's the same idea Sudoku makers use: start from a solved grid and work backwards.
+
+<Figure caption="Making a 10×10 puzzle by choosing the stars first. Each attempt grows new regions; hollow stars show a second solution that rules it out.">
+  <LiveGenerator client:visible />
+</Figure>
+
+**Two solvers arguing.** The third method is the one I was most excited about, because it's clause learning all over again. One SAT solver, the *proposer*, draws the regions. A second, the *checker*, looks for a second solution. Each one it finds becomes a new rule for the proposer: "your regions must break this solution". The proposer never makes the same mistake twice, just as CDCL never walks into the same dead end twice. When the checker finally finds nothing, it has proved the puzzle unique. This loop has a name, counterexample-guided synthesis (*CEGIS*), and it works for any puzzle, not just Star Battle.
+
+It needs only about seven proposals per puzzle. But it was the slowest of the three, and the reason is instructive. Regions must each be in one piece, and that's surprisingly hard to say in clauses. My first try told the proposer about each broken region only after it drew one. It never caught up: there are so many ways to draw a region in pieces that in 2,000 rounds it never drew a single valid layout. Writing the rule out in full fixed that, but drawing connected regions inside a SAT solver stays expensive.
+
+<Figure caption="The same 200 seeds made each way, on my laptop with 16 puzzles at a time.">
+  <StrategyCharts client:visible />
+</Figure>
+
+So the elegant method lost, and the simple one won. I kept all three in a small Rust crate, and the pool for the game comes from choosing the stars first.
+
+For puzzles made of clues, like Sudoku, there's a fourth way that *is* elegant and fast: start with every clue showing, then remove them one at a time, putting a clue back whenever a second solution appears. A clue can only ever rule solutions out, so once a clue is needed it stays needed, and you end with a puzzle where every clue counts. That's how the 16×16 and 25×25 grids in the last post were made.
+
+## How hard is it?
+
+The game needs Easy and Hard levels, so every puzzle has to be graded. The obvious measure is how hard the solver had to work. But the last post showed that depends on the solver as much as the puzzle: switching on phase saving tripled the dead ends on one Sudoku.
+
+So I grade by how far ahead a person would have to think. **Depth 0** means forced moves alone solve it: every step is "this is the only place left". **Depth 1** allows one "what if": "if I put a star here, the forced moves run into a contradiction, so it can't go here". **Depth 2** allows a "what if" inside a "what if". Of the 600 puzzles in the chart above, all but one need depth 1 or 2 (the odd one out, from random regions, needs more), so Easy is depth 1 and Hard is depth 2. The grader only uses forced moves and trials, never the solver's search, so its answer doesn't depend on any heuristic.
+
+The solver feels the difference too. Across the 200 puzzles made by choosing the stars first, it learns a median of 32 clauses solving an Easy one, and 74 solving a Hard one. Each learnt clause is a new rule about that particular grid, "these can't all be true at once". Here they are for one Easy and one Hard puzzle.
+
+<Figure caption="The rules the solver learns while solving each puzzle. ★ means a star and × means no star; a rule's marks can't all be true together.">
+  <LearnedRules client:visible />
+</Figure>
+
+## Where you and the solver disagree
+
+Strong Star Battle players use counting. "These three regions sit entirely inside these three rows, so between them they hold all six of those rows' stars, and no other region can put a star there." It's a big step for a person, and a hard one for this kind of solver. It's the same reasoning as the pigeonhole problems, which are provably hard for clause learning. So a puzzle graded Hard here might feel quick to someone who spots the right count, and an Easy one might be slow going for someone who doesn't.
+
+## Next
+
+All 4,000 are in the [next post](../star-battle/), with the solver standing by to help.

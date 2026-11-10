@@ -1,0 +1,168 @@
+---
+title: "From Brute Force to CDCL"
+description: "My old Sudoku solver tried every digit in every cell. A modern SAT solver still guesses, but it learns from every mistake. Race them in your browser."
+pubDate: 2026-11-10T08:00:00Z
+cover: ./cover.png
+coverAlt: "A 9×9 Sudoku frozen mid-search: the clues in white, and a brute-force solver's guesses packed into the top rows"
+tags: ["Algorithms", "Rust", "WebAssembly"]
+draft: false
+---
+
+import Figure from "@/components/post/Figure.astro";
+import BruteForceWatch from "./brute-force/BruteForceWatch.vue";
+import ClauseExplorer from "./encoding/ClauseExplorer.vue";
+import DinnerParty from "./encoding/DinnerParty.vue";
+import LadderRace from "./ladder/LadderRace.vue";
+import PhaseTransition from "./charts/PhaseTransition.vue";
+
+## The solver I wrote at university
+
+At university I wrote a Sudoku solver in MATLAB. It was short, and it was recursive. It found the first empty cell and put a 1 in it. If the 1 broke a rule, it tried 2, then 3, and so on. When a digit fit, it moved on to the next empty cell and did the same thing again. And when it reached a cell where nothing fit, it backed up to the previous cell and tried that cell's next digit.
+
+In pseudocode, it was more or less this:
+
+```text
+solve(grid):
+    find the first empty cell
+    if there isn't one:
+        return true                  # every cell is filled: solved
+    for digit in 1 to 9:
+        if digit fits its row, column and box:
+            write digit in the cell
+            if solve(grid):
+                return true
+            erase the cell           # that didn't work out: undo
+    return false                     # nothing fits here: back up
+```
+
+It solved every puzzle I gave it, which felt like a win at the time. But that only tells you it works on friendly puzzles. The grid below isn't friendly. Its solution's top row is 9 8 7 6 5 4 3 2 1, the exact opposite of the order my solver tries digits in, and the top row is the first thing it fills. Every wrong guess up there sends it off on a long, doomed search through the rest of the grid. It was posted by [Rico Alan](https://www.flickr.com/photos/npcomplete/2361922699) in 2008, and it's the example Wikipedia's article on [Sudoku solving algorithms](https://en.wikipedia.org/wiki/Sudoku_solving_algorithms#Backtracking) uses to show backtracking at its worst. The article mentions one brute-force program that took six hours to solve a puzzle like it, on a 2008-era computer.
+
+<Figure caption="The recursive solver, running in your browser on a puzzle built to defeat it. Puzzle by Rico Alan, via Wikipedia.">
+  <BruteForceWatch client:visible />
+</Figure>
+
+The counter passes a hundred million guesses in a few seconds, and the puzzle is no closer to solved. The problem isn't speed. Each time the solver backs out of a dead end, it forgets why it got stuck. So it walks into the same trap again and again, just from a slightly different direction.
+
+## One solver for every puzzle?
+
+My solver knew a lot about Sudoku and nothing about anything else. A Star Battle solver would have been a new program. So would a timetable solver, or one that works out which versions of your software's dependencies fit together. Each would need its own tricks, and each would have its own bugs.
+
+There's a better way, and it's older than Sudoku's popularity. In 1971, Stephen Cook proved that one particular problem, Boolean satisfiability, or SAT, is at least as hard as any problem whose answers are quick to check. Leonid Levin found the same result independently. Problems whose answers are quick to check are called NP, and SAT was the first problem shown to be NP-complete: any problem in NP can be translated into SAT without much blow-up.
+
+SAT itself is simple to state. You have some yes-or-no questions, called *variables*, and a list of rules about them. Every rule has the same shape: "at least one of these is true". A rule like that is a *clause*, and each item in it, a variable or its opposite, is a *literal*. The whole problem, the *formula*, is a list of clauses that must all hold at once. "Or" inside each clause, "and" between them: that shape is called conjunctive normal form, or CNF, and it's what every SAT solver reads.
+
+Here's a small one. Say you're planning a dinner, and wondering which of Alice, Bob and Carol to invite. Someone has to come. Alice and Bob aren't speaking, so not both of them. And Carol will only come if Bob does. As clauses, that's:
+
+1. Alice, or Bob, or Carol.
+2. Not Alice, or not Bob.
+3. Not Carol, or Bob.
+
+The third is "if Carol, then Bob" in disguise: the only way to break it is for Carol to come without Bob. Any yes-or-no rule can be written as clauses like these, sometimes with the help of a few extra variables. In the usual notation, with ∨ for or, ∧ for and, and ¬ for not, the whole formula is (A ∨ B ∨ C) ∧ (¬A ∨ ¬B) ∧ (¬C ∨ B).
+
+The SAT question is whether there's a way to answer every variable, yes or no, that makes every clause hold. There are three solutions to this one. See if you can find them all.
+
+<Figure caption="A tiny SAT problem. A clause holds as soon as one of its literals does.">
+  <DinnerParty client:visible />
+</Figure>
+
+With three variables there are only eight guest lists to try. With 729 variables, like a Sudoku, there are more than 10<sup>219</sup>, so trying them all is out of the question. That's what makes a SAT solver interesting.
+
+The practical upshot is a change of job. You don't write a solver for each puzzle. You write a translator, an *encoder*, that turns your puzzle into clauses, and you hand them to one very good SAT solver.
+
+### Sudoku as clauses
+
+For Sudoku, give every cell and digit its own variable. `r1c1=5` is true if the top-left cell holds a 5. That's 9 × 9 × 9 = 729 variables. Each rule of Sudoku then becomes a pile of clauses. "No other 5 in row 1" becomes eight clauses of the form "not `r1c1=5`, or not `r1c2=5`", one for each other cell in the row.
+
+Pick a cell and a digit below to see every clause that mentions that variable. Pick a rule to light up the cells it involves, and to see one of its clauses.
+
+<Figure caption="Every clause that mentions one variable of a 9×9 Sudoku.">
+  <ClauseExplorer client:visible />
+</Figure>
+
+The bare minimum is 8,829 clauses: every cell holds a digit, and no row, column or box repeats one. Add the other 3,159 (each cell holds only one digit, and every row, column and box has every digit somewhere) and you get 11,988. Logically, the extras add nothing. A grid that satisfies the minimal set already satisfies them. But they let the solver notice things sooner, as you're about to see.
+
+## Brute force that learns
+
+A modern SAT solver is still a search. It still makes guesses (*decisions*, in the jargon), and it still backs up. The difference from my university solver comes down to a handful of ideas, and the way they're put together is called CDCL: conflict-driven clause learning.
+
+**Forced moves (unit propagation).** If every literal in a clause is false except one, that last one has to be true. After every guess, the solver applies this rule over and over until nothing more is forced. This is called *unit propagation*, or *propagation* for short. On Sudoku, with the extended encoding, it finds exactly what a human finds when only one digit fits a cell, or a digit fits only one cell in a row. Search with propagation but nothing else is called DPLL, after Davis, Putnam, Logemann and Loveland, who described it in the early 1960s. It's the first step up from my university solver.
+
+**Learning from dead ends (clause learning).** Sometimes propagation forces a clause to have every literal false. That's a dead end, which solvers call a *conflict*. DPLL just backs up one guess. A CDCL solver instead traces the conflict back through the forced moves that caused it, to the handful of guesses responsible, and writes that down as a new clause, so it can never make that combination of guesses again. Then it jumps back to the most recent of those guesses (*backjumping*), which can be a long way up the search, skipping every guess in between that had nothing to do with it.
+
+**Looking where the trouble is (VSIDS).** Every variable has a score, which goes up each time the variable takes part in a conflict and slowly fades otherwise. The solver always guesses on the highest-scoring variable. This heuristic is called VSIDS, short for Variable State Independent Decaying Sum, and it keeps the search focused on whatever part of the problem is causing trouble right now.
+
+I built a solver with these ideas in Rust, compiled it to WebAssembly, and kept every in-between version. Here they all are, racing on three puzzles. Each version adds one idea to the one above it. They stop at 5 seconds.
+
+<Figure caption="Each solver adds one idea to the one above it. A dead end is a brute-force cell with no digit left, or a SAT conflict.">
+  <LadderRace client:visible />
+</Figure>
+
+I expected a staircase, with each idea beating the one before on every puzzle. That's not what happens.
+
+- **The 9×9 built against brute force.** Every SAT version solves it without a single guess. With the extended encoding, forced moves alone fill in the whole grid. My university solver was stuck on a puzzle that never needed searching at all.
+- **The 16×16, with the minimal encoding.** With weaker propagation, guessing is unavoidable. DPLL goes past 400,000 dead ends and runs out of time. With clause learning, the solver needs about 700.
+- **The 25×25, as sparse as I could make it.** Here clause learning alone isn't enough. Choosing where to guess, with VSIDS, is what gets it over the line, at about 12,000 dead ends.
+
+Some ideas even make things worse on some puzzles: phase saving, which I'll come back to below, roughly triples the dead ends on the 16×16. Each idea rescues a different kind of hard problem. A good solver carries all of them, because it can't know in advance which kind it's facing.
+
+### What the main loop looks like
+
+The whole search fits in one short loop. This is the one from my solver, trimmed slightly:
+
+```rust
+loop {
+    if let Some(conflict) = self.propagate() {
+        if self.trail.at_root() {
+            return self.mark_unsat();            // a dead end with no guesses to undo: no solution
+        }
+        let learnt = self.analyze(conflict);     // which guesses caused this dead end?
+        self.backjump(learnt.backjump_level);    // backjump past the guesses that didn't
+        self.learn_and_assert(learnt);           // keep the new clause, and act on it
+        continue;
+    }
+    if self.restart_due() {
+        self.restart();
+        self.reduce_clauses_if_due();
+        continue;
+    }
+    match self.next_decision() {
+        Decision::Branch(lit) => self.decide(lit), // guess
+        Decision::AllAssigned => return Status::Sat,
+    }
+}
+```
+
+Two data structures make it fast. The *trail* is every guess and forced move in the order it was made, each forced move with the clause that forced it. It doubles as the queue of forced moves still to propagate, and it's what the solver walks back through to work out which guesses caused a dead end (*conflict analysis*). And each clause keeps an eye on just two of its literals (*two watched literals*), and only gets looked at when one of those two becomes false. In practice that means most clauses sleep through most moves, which matters, because propagation is where a solver spends most of its time.
+
+## "But SAT is NP-complete"
+
+If SAT is as hard as anything in NP, how can a solver be quick at all? The honest answer is that in the worst case it isn't. Nobody knows a way to solve every SAT problem quickly, and whether one exists is the P versus NP question. But most formulas you meet aren't the worst case.
+
+You can see this with random formulas. Each clause below picks three random variables and flips each with a coin. With few clauses, there's almost always a solution, and it's easy to find. With many, there almost never is, and the solver runs into dead ends everywhere it turns, which proves it quickly. The hard ones crowd into a narrow band in between, around 4.26 clauses per variable, where it's a coin toss either way.
+
+<Figure caption="Random 3-SAT, 30 formulas per point, solved in your browser. The vertical line marks 4.26 clauses per variable.">
+  <PhaseTransition client:visible />
+</Figure>
+
+The bigger the formulas, the sharper the cliff and the taller the peak. Real problems, like Sudoku, scheduling or hardware verification, have structure that random formulas lack, which is a big part of why solvers do so well on them.
+
+Random formulas near the peak are also where the last three ideas show what they're worth. Reusing the last answer (*phase saving*) means that when the solver guesses a variable again, it tries the value it last had. Starting over (*restarts*) throws away all the current guesses every so often, but keeps every learnt clause, so a bad early guess can't trap the search forever. And forgetting (*clause deletion*) drops the least useful learnt clauses, so the pile doesn't slow propagation down.
+
+| Solver | 150 variables | 200 variables |
+| --- | --- | --- |
+| DPLL (no learning) | 42 s, and 10 formulas unsolved | not attempted |
+| + clause learning | 34.1 s | not attempted |
+| + VSIDS | 0.39 s | 8.1 s |
+| + phase saving | 0.40 s | 7.3 s |
+| + restarts | 0.29 s | 6.6 s |
+| + clause deletion | 0.28 s | 3.8 s |
+
+That's 20 random formulas at 4.26 clauses per variable, run natively on my laptop. Notice that deletion doesn't reduce how many dead ends the solver hits at 200 variables: it's 271,011 against 265,976 without it, slightly more. It wins by making each one cheaper.
+
+## Can you trust it?
+
+A solver that says "this has no solution" is asking you to take its word for it. Mine doesn't have to be trusted. It's tested against brute-force enumeration on thousands of small formulas, and its answers on 100 random formulas match CaDiCaL, a leading solver. Every time it says "no solution", it can also write out a proof: the list of clauses it learnt, each of which follows from the earlier ones. An independent checker, drat-trim, accepted all 47 of those proofs.
+
+## Next
+
+A Sudoku is only good if it has exactly one solution. Finding a solution is the easy part. Proving there isn't a second one is harder, and it's where the solver really earns its keep. That's the next post: making Star Battle puzzles with a SAT solver as the oracle.

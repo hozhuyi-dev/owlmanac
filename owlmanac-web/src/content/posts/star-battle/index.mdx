@@ -1,0 +1,34 @@
+---
+title: "Star Battle"
+description: "Play Star Battle with a SAT solver looking over your shoulder: it spots mistakes early, gives hints, and explains itself."
+pubDate: 2026-11-10T10:00:00Z
+cover: ./cover.png
+coverAlt: "A solved 10×10 Star Battle puzzle, its twenty stars glowing on a dark grid like a small constellation"
+tags: ["Algorithms", "Rust", "WebAssembly"]
+draft: false
+---
+
+import Figure from "@/components/post/Figure.astro";
+import Game from "./board/Game.vue";
+
+Here's the game. Put two stars in every row, every column and every outlined region, with no two stars touching, not even at a corner. Each puzzle has exactly one solution.
+
+<Figure caption="Star Battle, with a SAT solver running in your browser. Click a cell to cycle through star, ruled out and empty.">
+  <Game client:visible />
+</Figure>
+
+The puzzles come from the [last post](../making-puzzles-with-a-sat-oracle/): 2,000 Easy and 2,000 Hard, each proved to have one solution. Your browser remembers which ones you've played, so you won't see the same one twice until you've played them all.
+
+## What the solver is doing
+
+The same solver from the [first post](../from-brute-force-to-cdcl/) sits behind every button. Each helper is one question to it.
+
+**Can this still be finished?** After every click, the solver tries to finish the puzzle with your marks taken as given. Your marks don't become new clauses: they're *assumptions*, things the solver takes as true for this one question and then drops. So the same solver answers question after question, and keeps what it learnt along the way. If there's no way to finish, it says so straight away, often long before anything visibly breaks.
+
+**Which marks are to blame?** When the board can't be finished, the solver works out which marks can't all stand together. Each rule of the puzzle sits behind a switch that's normally on, so when the solver proves "no solution", the proof can say which marks and which rules it used. Then it drops them one at a time, keeping only what's still needed, and those marks turn red. It's not always the smallest possible set, but at least one red mark is wrong.
+
+**Hint.** The hint is one step of the grader from the last post. It looks for the easiest cell to work out next: first one that's simply forced, then one that needs a single "what if", then a "what if" inside a "what if". It tells you which cell, how deep you'll need to look, and why the opposite can't be.
+
+**Ask why.** Turn this on and click any cell to ask why a star can't go there. A second copy of the solver, one that never searches, places your star and follows the forced moves until something breaks. Every step it takes is one rule of the puzzle, so it can be read back as a sentence. When forced moves alone don't break anything but the star is still wrong, it says so honestly: showing it needs trying cases, which no short chain can do.
+
+That's the whole trick of the series. One small, general solver, asked the right questions, plays the puzzle, makes the puzzle, grades the puzzle and explains the puzzle.

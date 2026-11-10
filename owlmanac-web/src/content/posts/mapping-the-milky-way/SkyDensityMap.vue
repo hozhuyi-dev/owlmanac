@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import * as Plot from "@observablehq/plot";
 import { ref } from "vue";
-import { parquet, query } from "@/lib/duckdb";
-import { usePlot } from "@/lib/plot";
+import { parquet, query } from "@/core/duckdb/duckdb";
+import { usePlot } from "@/core/plot/use-plot";
 
 const props = defineProps<{ src: string; frame: "equatorial" | "galactic" }>();
 

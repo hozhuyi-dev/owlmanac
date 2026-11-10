@@ -1,0 +1,13 @@
+[package]
+name = "sudoku"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+sat-core = { path = "../sat-core" }
+sat-oracle = { path = "../sat-oracle" }
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+proptest = "1"

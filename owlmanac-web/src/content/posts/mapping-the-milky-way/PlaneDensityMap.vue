@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import * as Plot from "@observablehq/plot";
 import { ref } from "vue";
-import { parquet, query } from "@/lib/duckdb";
-import { usePlot } from "@/lib/plot";
+import { parquet, query } from "@/core/duckdb/duckdb";
+import { usePlot } from "@/core/plot/use-plot";
 
 // `limit` picks the grid: stars within that many parsecs of the Sun.
 const props = defineProps<{ src: string; limit: number }>();

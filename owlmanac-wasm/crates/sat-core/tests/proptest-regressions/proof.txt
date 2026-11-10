@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 80f8f654bf8176445d7998cd906a6f71326f209847c2f5e7d1acb299d6797c1e # shrinks to cnf = Cnf { num_vars: 4, clauses: [[Lit(3), Lit(3)], [Lit(0), Lit(7)], [Lit(1), Lit(1)], [Lit(0), Lit(0)]] }

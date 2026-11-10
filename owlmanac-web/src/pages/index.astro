@@ -1,10 +1,10 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
-import Icon from "@/components/Icon.astro";
-import PostCard from "@/components/PostCard.astro";
+import Icon from "@/components/site/Icon.astro";
+import PostCard from "@/components/site/PostCard.astro";
 import { EMAIL, SITE_TITLE, SOCIAL_LINKS } from "@/consts";
-import { getPosts } from "@/lib/posts";
-import { url } from "@/lib/url";
+import { getPosts } from "@/core/site/posts";
+import { url } from "@/core/site/url";
 
 const posts = await getPosts();
 ---
