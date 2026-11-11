@@ -171,6 +171,20 @@ html.in-post.site-dark {
   overflow-x: auto;
 }
 
+/* A full-width slider squeezes its value below its text's width (marimo gives it a 16px minimum), so the
+   value is clipped and its box scrolls. Inside the slider's shadow root, which marimo copies this file
+   into, so no .in-post: it can't see past the root (marimo 0.25). */
+.mo-label [class~="min-w-[16px]"] {
+  flex-shrink: 0;
+}
+
+/* marimo hangs an expand-to-fullscreen button just past each output's right edge, outside the post's
+   column: an output that scrolls (a vstack's) scrolls sideways to reach it. Hidden in posts; matched by
+   its classes (marimo 0.25). */
+.in-post [class~="-right-9"]:has(> button .lucide-expand) {
+  display: none;
+}
+
 /* In a post, code starts hidden, so it reads as prose and charts; the post's "Show code" (in its contents,
    NotebookLayout) adds .show-code. marimo puts each cell's code in a .tray, and a cell with no output (a
    setup cell) has no .output-area, so it goes too (marimo 0.25; check both after an upgrade). */

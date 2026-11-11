@@ -40,7 +40,7 @@ const missing = import.meta.env.DEV
         <iframe class="notebook" src="notebook/" title={post.data.title} />
         <div class="notebook-toast" role="status" aria-live="polite" data-state="loading">
           <span class="owl" set:html={artSvg("owl", 28, { draw: true })} />
-          <span class="text">Loading Python in your browser. The outputs are already here; inputs work once it's ready.</span>
+          <span class="text">Charts are ready. Controls will work shortly.</span>
         </div>
       </>
     )
@@ -94,10 +94,10 @@ const missing = import.meta.env.DEV
   // "stale" outputs appear while cells rerun, and clear when they finish.
   const toast = document.querySelector<HTMLElement>(".notebook-toast");
   const MESSAGES = {
-    loading: "Loading Python in your browser. The outputs are already here; inputs work once it's ready.",
-    running: "Running the notebook…",
-    ready: "The notebook is live: move the sliders.",
-    slow: "Python is slow to load. The outputs are still accurate; inputs will work once it's ready.",
+    loading: "Charts are ready. Controls will work shortly.",
+    running: "Almost ready…",
+    ready: "Ready: try the controls.",
+    slow: "Taking a while. The charts are accurate; controls will follow.",
   };
 
   function show(state: keyof typeof MESSAGES) {

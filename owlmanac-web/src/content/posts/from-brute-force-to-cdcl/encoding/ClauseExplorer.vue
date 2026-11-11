@@ -251,8 +251,11 @@ li button {
   cursor: pointer;
 }
 
-li button:hover {
-  background: var(--surface);
+/* Only where there's a pointer to hover: on a touch screen, hover sticks to the last one tapped. */
+@media (hover: hover) {
+  li button:hover {
+    background: var(--surface);
+  }
 }
 
 li button[aria-pressed="true"] {

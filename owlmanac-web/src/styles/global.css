@@ -122,6 +122,19 @@ h4 {
   text-wrap: balance;
 }
 
+/* A quick second tap on a control is a second press, never a zoom: phones zoom on a double tap, and a
+   zoomed page scrolls sideways. Pinching still zooms. */
+a,
+button,
+input,
+label,
+select,
+summary,
+textarea,
+[role="button"] {
+  touch-action: manipulation;
+}
+
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -249,13 +262,14 @@ pre {
 /* Charts. Plot's own styles use :where(), so these win without !important. */
 /* A chart sets --chart-height to the height it draws at, so its placeholder takes the same space. While
    it waits, the owl draws itself (--busy-art, an animated mask) over a quip (--busy-quip), both set in
-   BaseLayout's head. */
+   BaseLayout's head. Any other figure's waiting place takes the same look with .busy. */
 .chart {
   min-height: var(--chart-height, 12rem);
   font-family: var(--font-sans);
 }
 
-.chart:empty {
+.chart:empty,
+.busy {
   display: grid;
   place-content: center;
   justify-items: center;
@@ -265,7 +279,8 @@ pre {
   color: var(--muted);
 }
 
-.chart:empty::before {
+.chart:empty::before,
+.busy::before {
   content: "";
   width: 3.5rem;
   height: 3.5rem;
@@ -273,11 +288,14 @@ pre {
   mask: var(--busy-art) center / contain no-repeat;
 }
 
-.chart:empty::after {
+.chart:empty::after,
+.busy::after {
   content: var(--busy-quip, "Thinking it over…");
+  padding-inline: 1rem;
   font-family: var(--font-display);
   font-size: 1rem;
   font-style: italic;
+  text-align: center;
 }
 
 .chart svg {

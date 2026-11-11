@@ -262,7 +262,9 @@ def _(GLIMPSE, alt, chart_data, faintest, glimpse, mo):
         alt.Chart(
             chart_data(_shown, "source_id", "ra", "dec", "g_mag", "brightness")
         )
-        .mark_circle(opacity=0.85)
+        # Clipped to the plot: a bright star at the edge would otherwise
+        # draw past it, and widen the chart past a phone's column.
+        .mark_circle(opacity=0.85, clip=True)
         .encode(
             x=alt.X(
                 "ra:Q",
@@ -291,6 +293,9 @@ def _(GLIMPSE, alt, chart_data, faintest, glimpse, mo):
                 "brightness:Q",
                 title="21 − G",
                 scale=alt.Scale(domain=[0, 12], clamp=True),
+                legend=alt.Legend(
+                    orient="bottom", direction="horizontal", gradientLength=240
+                ),
             ),
             tooltip=[
                 alt.Tooltip("source_id:N", title="Source"),
@@ -463,7 +468,12 @@ def _(COUNTS, alt, chart_data):
                     "star_count:Q",
                     title="Stars per pixel",
                     scale=COUNTS,
-                    legend=alt.Legend(format="~s"),
+                    legend=alt.Legend(
+                        orient="bottom",
+                        direction="horizontal",
+                        gradientLength=240,
+                        format="~s",
+                    ),
                 ),
                 tooltip=[
                     alt.Tooltip("healpix:Q", title="HEALPix"),
@@ -476,7 +486,7 @@ def _(COUNTS, alt, chart_data):
         return (
             alt.layer(sphere, graticule, stars)
             .project(type="equalEarth")
-            .properties(width="container", height=380)
+            .properties(width="container", height=340)
         )
 
     return (sky_map,)
@@ -602,9 +612,10 @@ async def _(adql, cached, local_only, math, mo):
 @app.cell
 def _(COUNTS, alt, chart_data):
     def plane_map(plane_density, limit):
-        """Star counts per bin on the Galactic plane, the Sun at the origin. A
-        fixed square, as x and y are both parsecs; on a narrow screen it
-        scrolls sideways in its own box."""
+        """Star counts per bin on the Galactic plane, the Sun at the origin.
+        It takes the column's width, and x and y, both parsecs, keep one
+        scale: the longer side shows more around the disk, so bins stay
+        square on a phone and on a wide screen."""
         bins = [
             {
                 **b,
@@ -617,7 +628,18 @@ def _(COUNTS, alt, chart_data):
         reach = float(
             max(max(-b["x"], b["x_end"], -b["y"], b["y_end"]) for b in bins)
         )
-        scale = alt.Scale(domain=[-reach, reach], nice=False)
+
+        # Each axis reaches at least `reach`, the longer one further.
+        # `width` and `height` are the plot's, in pixels, as Vega draws it.
+        def scale(longer, shorter):
+            half = f"{reach} * max(1, {longer} / {shorter})"
+            return alt.Scale(
+                domainMin=alt.ExprRef(f"-{half}"),
+                domainMax=alt.ExprRef(half),
+                nice=False,
+                zero=False,
+            )
+
         return (
             alt.Chart(
                 chart_data(bins, "x", "y", "x_end", "y_end", "star_count")
@@ -627,13 +649,13 @@ def _(COUNTS, alt, chart_data):
                 x=alt.X(
                     "x:Q",
                     title="Galactic X (pc), towards the Galactic Centre →",
-                    scale=scale,
+                    scale=scale("width", "height"),
                 ),
                 x2="x_end:Q",
                 y=alt.Y(
                     "y:Q",
                     title="↑ Galactic Y (pc), direction of rotation",
-                    scale=scale,
+                    scale=scale("height", "width"),
                 ),
                 y2="y_end:Q",
                 color=alt.Color(
@@ -653,7 +675,7 @@ def _(COUNTS, alt, chart_data):
                     alt.Tooltip("star_count:Q", title="Stars", format=","),
                 ],
             )
-            .properties(width=480, height=480)
+            .properties(width="container", height=400)
         )
 
     return (plane_map,)

@@ -4,12 +4,11 @@ import { Image } from "astro:assets";
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import NextRead from "@/components/site/NextRead.astro";
 import PostMeta from "@/components/site/PostMeta.astro";
-import SeriesNav from "@/components/site/SeriesNav.astro";
 import TableOfContents from "@/components/site/TableOfContents.astro";
-import { getPosts, readingTime, type Post } from "@/core/site/posts";
+import { getPosts, readingTime, seriesOf, type Post } from "@/core/site/posts";
 
-// A post: its title and meta, then its contents (a column beside the post on wide screens, a sticky bar
-// under the title on a phone), the cover and body, and what to read next. A notebook post is laid out
+// A post: its title and meta, then its contents, headed by its series (a column beside the post on wide
+// screens, a sticky bar under the title on a phone), the cover and body, and what to read next. A notebook post is laid out
 // the same, its notebook in the body's place (NotebookLayout).
 interface Props {
   post: Post;
@@ -22,6 +21,7 @@ interface Props {
 
 const { post, headings, meta = readingTime(post.body ?? ""), within } = Astro.props;
 const posts = await getPosts();
+const series = seriesOf(post, posts);
 const { title, description, cover, coverAlt, coverCredit, notebook } = post.data;
 ---
 
@@ -30,17 +30,16 @@ const { title, description, cover, coverAlt, coverCredit, notebook } = post.data
     <header class="post-head">
       <h1>{title}</h1>
       <PostMeta post={post} extra={meta} />
-      <SeriesNav post={post} posts={posts} />
     </header>
     <aside class="contents">
       {/* A layout's "contents" slot goes into the contents: a control kept in reach (NotebookLayout). */}
       {
         Astro.slots.has("contents") ? (
-          <TableOfContents headings={headings} haunts={post.data.haunts} within={within}>
+          <TableOfContents headings={headings} haunts={post.data.haunts} within={within} series={series}>
             <slot name="contents" />
           </TableOfContents>
         ) : (
-          <TableOfContents headings={headings} haunts={post.data.haunts} within={within} />
+          <TableOfContents headings={headings} haunts={post.data.haunts} within={within} series={series} />
         )
       }
     </aside>
