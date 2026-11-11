@@ -12,7 +12,7 @@ interface Props {
 const { pool } = Astro.props;
 ---
 
-<div class:list={["quiet", pool]} data-pool={pool}>
+<div class:list={["quiet", `quiet-${pool}`]} data-pool={pool}>
   {
     TIMES.map((time) => {
       const { quip, art } = firstQuip(pool, time);
@@ -53,7 +53,7 @@ const { pool } = Astro.props;
     display: contents;
   }
 
-  .quiet.broken .quiet-art {
+  .quiet-broken .quiet-art {
     color: var(--danger);
   }
 
