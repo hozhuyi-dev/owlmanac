@@ -36,11 +36,11 @@ const { title, description, cover, coverAlt, coverCredit, notebook } = post.data
       {/* A layout's "contents" slot goes into the contents: a control kept in reach (NotebookLayout). */}
       {
         Astro.slots.has("contents") ? (
-          <TableOfContents headings={headings} within={within}>
+          <TableOfContents headings={headings} haunts={post.data.haunts} within={within}>
             <slot name="contents" />
           </TableOfContents>
         ) : (
-          <TableOfContents headings={headings} within={within} />
+          <TableOfContents headings={headings} haunts={post.data.haunts} within={within} />
         )
       }
     </aside>

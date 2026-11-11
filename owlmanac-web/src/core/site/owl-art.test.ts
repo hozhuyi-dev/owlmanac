@@ -71,6 +71,11 @@ describe("the header's hours", () => {
     }
   });
 
+  // A visit picks from the lines that fit beside the nav; on a 320px phone that's about 18 characters.
+  it.each(TIMES)("keeps a dozen or more short %s lines, for the narrowest phones", (time) => {
+    expect(HOURS[time].filter((line) => line.length <= 18).length).toBeGreaterThanOrEqual(12);
+  });
+
   it("never says the same line by night and by day", () => {
     const night = new Set<string>(HOURS.night);
     expect(HOURS.day.filter((line) => night.has(line))).toEqual([]);

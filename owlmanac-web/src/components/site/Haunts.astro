@@ -1,0 +1,189 @@
+---
+import Icon from "@/components/site/Icon.astro";
+import { getPosts, haunts } from "@/core/site/posts";
+import { url } from "@/core/site/url";
+
+// The Haunts menu: what readers come back to (games, puzzles, tools), each a link to its place in its post
+// (its `haunts` in the frontmatter). One popover, opened by the header's "Haunts" on wide screens and its
+// ☰ on a phone (BaseLayout): under the button there, a sheet from the right edge here. The browser closes it
+// on Escape or a click outside; links close it too, for a jump within the page already open.
+const groups = haunts(await getPosts());
+---
+
+{
+  groups.length > 0 && (
+    <div id="haunts" class="haunts" popover aria-labelledby="haunts-title">
+      <div class="head">
+        <h2 id="haunts-title">Haunts</h2>
+        <button type="button" class="close" popovertarget="haunts" popovertargetaction="hide" aria-label="Close">
+          <Icon name="close" size={20} />
+        </button>
+      </div>
+      <p class="lede">Puzzles, games and tools to come back to.</p>
+      {groups.map(({ group, haunts }) => (
+        <section>
+          <h3 class="eyebrow">{group}</h3>
+          <ul>
+            {haunts.map((haunt) => (
+              <li>
+                <a href={url(`posts/${haunt.post.id}/#${haunt.id}`)} data-haunt>
+                  {haunt.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  )
+}
+
+<script>
+  const menu = document.querySelector<HTMLElement>("#haunts");
+  // On a wide screen the panel opens under the button that opened it, by its right edge. Absolute in the top
+  // layer is against the page, so it scrolls with the header it hangs from.
+  menu?.addEventListener("beforetoggle", (event) => {
+    if ((event as ToggleEvent).newState !== "open") return;
+    const opener = [...document.querySelectorAll<HTMLElement>('[popovertarget="haunts"]')].find(
+      (button) => button.offsetParent && !menu.contains(button),
+    );
+    if (!opener) return;
+    const box = opener.getBoundingClientRect();
+    menu.style.setProperty("--top", `${box.bottom + scrollY + 8}px`);
+    menu.style.setProperty("--right", `${document.documentElement.clientWidth - box.right}px`);
+  });
+  menu?.querySelectorAll("a").forEach((link) => link.addEventListener("click", () => menu.hidePopover()));
+</script>
+
+<style>
+  /* Wide: a small panel under the button. */
+  .haunts {
+    position: absolute;
+    inset: var(--top, 4rem) var(--right, 1rem) auto auto;
+    width: max-content;
+    min-width: 14rem;
+    max-width: min(22rem, calc(100vw - 2rem));
+    margin: 0;
+    padding: 1rem 1.25rem 1.1rem;
+    border: 1px solid var(--line);
+    border-radius: 0.5rem;
+    background: var(--bg);
+    color: var(--fg);
+    box-shadow: 0 8px 24px color-mix(in srgb, #000 18%, transparent);
+  }
+
+  .head {
+    display: none;
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 1.25rem;
+  }
+
+  .close {
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-right: -0.6rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  .close:hover {
+    color: var(--fg);
+  }
+
+  .lede {
+    margin: 0 0 1rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+    line-height: 1.45;
+  }
+
+  section + section {
+    margin-top: 1rem;
+  }
+
+  h3 {
+    margin: 0 0 0.35rem;
+  }
+
+  ul {
+    display: grid;
+    gap: 0.15rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  a {
+    display: block;
+    padding-block: 0.2rem;
+    color: var(--fg);
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: var(--accent);
+  }
+
+  /* A phone: a sheet from the right edge, in a thumb's reach, the page dimmed behind it. */
+  @media (max-width: 47.99rem) {
+    .haunts {
+      position: fixed;
+      inset: 0 0 0 auto;
+      width: min(20rem, 85vw);
+      min-width: 0;
+      max-width: none;
+      height: 100dvh;
+      max-height: none;
+      padding: 0.6rem var(--gutter) 1.5rem 1.5rem;
+      border: 0;
+      border-left: 1px solid var(--line);
+      border-radius: 0;
+      box-shadow: none;
+      transition:
+        transform 0.2s ease-out,
+        overlay 0.2s allow-discrete,
+        display 0.2s allow-discrete;
+    }
+
+    .haunts:not(:popover-open) {
+      transform: translateX(100%);
+    }
+
+    @starting-style {
+      .haunts:popover-open {
+        transform: translateX(100%);
+      }
+    }
+
+    .haunts::backdrop {
+      background: color-mix(in srgb, #000 40%, transparent);
+    }
+
+    .head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 3rem;
+      margin-bottom: 0.25rem;
+    }
+
+    a {
+      padding-block: 0.45rem;
+      font-size: 1.05rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .haunts {
+      transition: none;
+    }
+  }
+</style>

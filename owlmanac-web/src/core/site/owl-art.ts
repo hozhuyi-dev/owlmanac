@@ -189,8 +189,9 @@ const DAY_QUIPS = {
 /**
  * The header's line under the site's name, on every page: what the owl is up to, by the theme (up at
  * night, asleep by day, beside the mark's "z z"). One is picked per visit, so the site stays fresh; the
- * first is what pages are built with. Same voice as the quips, and not about the sky. At most 46
- * characters: one line on a wide screen, at most two beside the nav on a phone.
+ * first is what pages are built with. Same voice as the quips, and not about the sky. It never wraps: a
+ * visit picks only from the lines that fit beside the nav (BaseLayout), so each pool keeps short ones (18
+ * characters or fewer) for the narrowest phones. At most 46 characters, one line on a wide screen.
  */
 export const HOURS = {
   night: [
@@ -218,6 +219,28 @@ export const HOURS = {
     "Fully nocturnal, fully caffeinated.",
     "The candle's lit and the problems are waiting.",
     "Quiet hours. Good for thinking.",
+    // Short ones, for the narrowest phones, where the line has about 18 characters beside the nav.
+    "Up past midnight.",
+    "Proof in progress.",
+    "Still at the desk.",
+    "Wide awake.",
+    "Kettle's on.",
+    "Pencil out.",
+    "Night shift.",
+    "Mid-proof.",
+    "Hoo's up? Me.",
+    "Eyes wide open.",
+    "Lamp's still on.",
+    "Ink still wet.",
+    "Thinking. Come in.",
+    "Late, and working.",
+    "On the night shift.",
+    "Burning the oil.",
+    // A little longer, for the next size of phone (about 26 characters).
+    "Up late, chasing a proof.",
+    "The kettle's on. Come in.",
+    "Working while you sleep.",
+    "Still up. Pull up a chair.",
   ],
   day: [
     "The owl is asleep. Read quietly.",
@@ -244,6 +267,28 @@ export const HOURS = {
     "The owl is out cold. The code still runs.",
     "Asleep. Everything here works without it.",
     "Fast asleep, one ear on the search box.",
+    // Short ones, for the narrowest phones.
+    "Asleep. Shh.",
+    "Back at dusk.",
+    "Do not disturb.",
+    "Roosting.",
+    "Fast asleep.",
+    "Napping. Read on.",
+    "Out like a candle.",
+    "Zzz. Read on.",
+    "Asleep. Read on.",
+    "Dreaming of proofs.",
+    "Snoring softly.",
+    "Lights out.",
+    "Do read quietly.",
+    "Asleep till dusk.",
+    "Head under a wing.",
+    "Napping. Shh.",
+    // A little longer, for the next size of phone.
+    "Asleep. The posts aren't.",
+    "Back after dark. Read on.",
+    "Asleep at the desk. Shh.",
+    "Owl asleep. Tiptoe in.",
   ],
 } as const satisfies Record<Time, readonly string[]>;
 

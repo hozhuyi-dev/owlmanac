@@ -1,9 +1,12 @@
 ---
 import { Font } from "astro:assets";
 import "@/styles/global.css";
+import Haunts from "@/components/site/Haunts.astro";
+import Icon from "@/components/site/Icon.astro";
 import ThemeSwitch from "@/components/site/ThemeSwitch.astro";
 import { AUTHOR, SITE_DESCRIPTION, SITE_TITLE, SOCIAL_LINKS } from "@/consts";
 import { artUrl, HOURS, owlMarkSvg, QUIPS } from "@/core/site/owl-art";
+import { getPosts, haunts } from "@/core/site/posts";
 import { url } from "@/core/site/url";
 
 interface Props {
@@ -18,6 +21,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 const aboutHref = url("about/");
 const onAbout = Astro.url.pathname.startsWith(aboutHref);
 const quips = QUIPS;
+const hasHaunts = haunts(await getPosts()).length > 0;
 ---
 
 <!doctype html>
@@ -101,19 +105,49 @@ const quips = QUIPS;
             </span>
           </span>
         </a>
-        <!-- One line per visit for each, picked as the page is read, so it's in place before the first paint
-             and never changes in view. -->
-        <script is:inline define:vars={{ hours: HOURS }}>
-          for (const [time, lines] of Object.entries(hours)) {
-            const line = document.querySelector(`.site-header .hours .by-${time}`);
-            if (line) line.textContent = lines[Math.floor(Math.random() * lines.length)];
-          }
-        </script>
         <nav aria-label="Site">
+          {
+            hasHaunts && (
+              <button type="button" class="haunts-open wide" popovertarget="haunts">
+                Haunts <Icon name="chevron" size={14} />
+              </button>
+            )
+          }
           <a href={aboutHref} aria-current={onAbout ? "page" : undefined}>About</a>
           <ThemeSwitch />
+          {
+            hasHaunts && (
+              <button type="button" class="haunts-open narrow" popovertarget="haunts" aria-label="Haunts" title="Haunts">
+                <Icon name="menu" size={22} />
+              </button>
+            )
+          }
         </nav>
+        <!-- One line per visit for each, picked as the page is read, once the nav is laid out beside it: only
+             from the lines that fit on one line in the room there is, so it never wraps, and it's in place
+             before the first paint and never changes in view. The fallback fonts are sized to match the real
+             ones, so what fits now still fits when they arrive. -->
+        <script is:inline define:vars={{ hours: HOURS }}>
+          const box = document.querySelector(".site-header .hours");
+          if (box) {
+            // With only every line at once in it, the box is as wide as the room the nav leaves.
+            const shown = [...box.children];
+            shown.forEach((line) => (line.textContent = ""));
+            const probe = document.createElement("span");
+            probe.className = "probe";
+            box.append(probe);
+            probe.textContent = Object.values(hours).flat().join(" ");
+            const room = box.clientWidth;
+            for (const [time, lines] of Object.entries(hours)) {
+              const fits = lines.filter((line) => ((probe.textContent = line), probe.offsetWidth <= room));
+              const pool = fits.length ? fits : lines;
+              shown.find((line) => line.matches(`.by-${time}`)).textContent = pool[Math.floor(Math.random() * pool.length)];
+            }
+            probe.remove();
+          }
+        </script>
       </div>
+      <Haunts />
     </header>
     <main>
       <slot />
@@ -177,8 +211,15 @@ const quips = QUIPS;
     margin-top: -0.2rem;
   }
 
+  .brand {
+    min-width: 0;
+  }
+
+  /* The name, and the owl's hours under it, give way to the nav: the line is picked to fit (above), and
+     cut short with an ellipsis only if the screen narrows after. */
   .name {
     display: grid;
+    min-width: 0;
   }
 
   .title {
@@ -188,13 +229,20 @@ const quips = QUIPS;
     letter-spacing: -0.01em;
   }
 
-  /* The owl's hours, a quiet line under the name (HOURS keeps them short). */
+  /* The owl's hours, a quiet line under the name, always one line. */
   .hours {
+    overflow: hidden;
     color: var(--muted);
     font-size: 0.8rem;
     font-style: italic;
     line-height: 1.3;
     white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* Measures the room, and each line, laid out like the line but unseen. */
+  .hours :global(.probe) {
+    visibility: hidden;
   }
 
   nav {
@@ -216,27 +264,65 @@ const quips = QUIPS;
     text-decoration-line: underline;
   }
 
-  /* A phone keeps the same layout, with the theme switch down to one button (ThemeSwitch): the line under
-     the name has the room left beside the nav, and wraps there to a second line when it needs to. It's
-     picked before the first paint, so its height is settled before anything shows. Down to 320px. */
+  .haunts-open {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--fg);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .haunts-open :global(svg) {
+    transition: transform 0.15s;
+  }
+
+  .haunts-open:hover {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+  }
+
+  :global(.site-header:has(.haunts:popover-open)) .haunts-open.wide :global(svg) {
+    transform: rotate(180deg);
+  }
+
+  /* A phone's ☰: a thumb's size, hanging into the gutter so its tap reaches the edge. */
+  .haunts-open.narrow {
+    display: none;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    margin: -0.5rem -0.6rem -0.5rem -0.35rem;
+  }
+
+  @media (max-width: 47.99rem) {
+    .haunts-open.wide {
+      display: none;
+    }
+
+    .haunts-open.narrow {
+      display: grid;
+    }
+  }
+
+  /* A phone keeps the same layout, with the theme switch down to one button (ThemeSwitch) and Haunts behind
+     a ☰: the line under the name has the room left beside the nav, and is picked to fit it. Down to 320px. */
   @media (max-width: 40rem) {
     .site-header .container {
       column-gap: 0.75rem;
       padding-block: 0.6rem;
     }
 
-    .brand {
-      min-width: 0;
-    }
-
     .hours {
       font-size: 0.75rem;
-      white-space: normal;
-      text-wrap: balance;
     }
 
     nav {
-      gap: 1rem;
+      gap: 0.75rem;
     }
   }
 

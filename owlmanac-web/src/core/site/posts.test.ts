@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { formatDay, nextRead, readingTime, seriesOf, topics, type Post } from "./posts";
+import { formatDay, haunts, nextRead, readingTime, seriesOf, topics, type Post } from "./posts";
 
 // posts.ts reads the collection only in getPosts, which these tests don't call.
 vi.mock("astro:content", () => ({ getCollection: vi.fn() }));
@@ -78,5 +78,35 @@ describe("readingTime", () => {
   it("counts 220 words a minute, and never less than a minute", () => {
     expect(readingTime("word ".repeat(660))).toBe("3 min read");
     expect(readingTime("short")).toBe("1 min read");
+  });
+});
+
+describe("haunts", () => {
+  const game = post("game", "2026-01-01T12:00:00Z", {
+    title: "Star Battle",
+    haunts: [
+      { group: "Puzzles", id: "play", action: "Play" },
+      { group: "Tools", id: "make", label: "Puzzle maker", action: "Make" },
+    ],
+  });
+  const other = post("other", "2026-02-01T12:00:00Z", {
+    haunts: [{ group: "Puzzles", id: "play", label: "Nonograms", action: "Play" }],
+  });
+
+  it("groups every post's haunts, both in alphabetical order, labelled by the post's title by default", () => {
+    expect(haunts([other, sky, game])).toEqual([
+      {
+        group: "Puzzles",
+        haunts: [
+          { post: other, id: "play", label: "Nonograms" },
+          { post: game, id: "play", label: "Star Battle" },
+        ],
+      },
+      { group: "Tools", haunts: [{ post: game, id: "make", label: "Puzzle maker" }] },
+    ]);
+  });
+
+  it("is empty when no post has one", () => {
+    expect(haunts(posts)).toEqual([]);
   });
 });

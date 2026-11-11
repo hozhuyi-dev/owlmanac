@@ -1,18 +1,24 @@
 ---
 import type { MarkdownHeading } from "astro";
+import Icon from "@/components/site/Icon.astro";
 
 // A post's contents. Wide screens: a column of sections (h2) with their subsections (h3). A phone: a bar
 // of sections only, scrolling sideways, with a line along its foot for how far through the post you are.
-// Either way it marks the section being read. Its slot is for a control the post keeps in reach (a
-// notebook's "Show code"): under the list, or at the bar's end, outside what scrolls.
+// Either way it marks the section being read. Then the post's actions, kept in reach: a jump to each of
+// its haunts ("Play"), and its slot's controls (a notebook's "Show code"). Under the list each is an icon
+// and its word; at the bar's end, outside what scrolls, the icon alone. A slot's control takes the class
+// "action", with an icon and a <span class="word">.
 interface Props {
   headings: MarkdownHeading[];
+  /** The post's haunts: each a jump to its place, named by its action. */
+  haunts?: { id: string; action: string }[];
   /** What the contents cover, for the bar's progress: the post's <article>, or a notebook's <iframe>,
       whose headings are then found inside it (it shares the page's origin, and the page scrolls it). */
   within?: string;
 }
 
-const { headings, within = "article" } = Astro.props;
+const { headings, haunts = [], within = "article" } = Astro.props;
+const hasActions = haunts.length > 0 || Astro.slots.has("default");
 const sections: (MarkdownHeading & { children: MarkdownHeading[] })[] = [];
 for (const heading of headings) {
   if (heading.depth === 2) sections.push({ ...heading, children: [] });
@@ -21,9 +27,9 @@ for (const heading of headings) {
 ---
 
 {
-  sections.length > 0 && (
+  (sections.length > 0 || hasActions) && (
     <nav class="toc" aria-label="On this page" data-within={within}>
-      <h2 class="eyebrow">On this page</h2>
+      {sections.length > 0 && <h2 class="eyebrow">On this page</h2>}
       <ul>
         {sections.map((section) => (
           <li>
@@ -46,8 +52,14 @@ for (const heading of headings) {
         ))}
       </ul>
       {
-        Astro.slots.has("default") && (
-          <div class="extra">
+        hasActions && (
+          <div class="actions">
+            {haunts.map((haunt) => (
+              <a class="action" href={`#${haunt.id}`} title={haunt.action} data-jump>
+                <Icon name="play" size={16} />
+                <span class="word">{haunt.action}</span>
+              </a>
+            ))}
             <slot />
           </div>
         )
@@ -72,7 +84,7 @@ for (const heading of headings) {
   const toc = document.querySelector<HTMLElement>(".toc");
   const list = toc?.querySelector<HTMLElement>(":scope > ul");
   const progress = toc?.querySelector<HTMLElement>(".progress");
-  const links = [...(toc?.querySelectorAll<HTMLAnchorElement>("a") ?? [])];
+  const links = [...(toc?.querySelectorAll<HTMLAnchorElement>(":scope > ul a") ?? [])];
   const ids = links.map((link) => decodeURIComponent(link.hash.slice(1)));
   const body = toc ? document.querySelector<HTMLElement>(toc.dataset.within!) : null;
   const notebook = body instanceof HTMLIFrameElement ? body : null;
@@ -87,7 +99,12 @@ for (const heading of headings) {
 
   /** A link's heading: in the page, or in the notebook's frame once it has rendered. */
   function target(i: number): HTMLElement | null {
-    return (notebook ? notebook.contentDocument : document)?.getElementById(ids[i]) ?? null;
+    return find(ids[i]);
+  }
+
+  /** An element by its id: in the page, or in the notebook's frame. */
+  function find(id: string): HTMLElement | null {
+    return (notebook ? notebook.contentDocument : document)?.getElementById(id) ?? null;
   }
 
   /** Where a heading is on the screen. */
@@ -194,6 +211,16 @@ for (const heading of headings) {
         jump(i, true);
       });
     }
+    // An action's jump (to a haunt) scrolls as a section's does, but marks nothing: it isn't a section.
+    for (const action of toc.querySelectorAll<HTMLAnchorElement>("a[data-jump]")) {
+      action.addEventListener("click", (event) => {
+        const place = find(decodeURIComponent(action.hash.slice(1)));
+        if (!place) return;
+        event.preventDefault();
+        history.pushState(null, "", action.hash);
+        scrollToHeading(place, true);
+      });
+    }
     const schedule = () => (frame ||= requestAnimationFrame(update));
     addEventListener("scroll", () => (jumping && holdUntilStill(), schedule()), { passive: true });
     addEventListener("resize", schedule);
@@ -259,8 +286,45 @@ for (const heading of headings) {
     display: none;
   }
 
-  .extra {
+  /* The post's actions, under the list: quiet rows like its links, an icon before the word. */
+  .actions {
+    display: grid;
+    justify-items: start;
+    gap: 0.45rem;
     margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .toc > ul:empty + .actions {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .actions :global(.action) {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font: 400 0.85rem/1.4 var(--font-sans);
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .actions :global(.action:hover) {
+    color: var(--fg);
+  }
+
+  .actions :global(.action[aria-pressed="true"]) {
+    color: var(--accent);
+  }
+
+  .actions :global(.action svg) {
+    flex: none;
   }
 
   /* A phone: one row of sections under the header's place, scrolling sideways, and the slot at its end. */
@@ -278,13 +342,36 @@ for (const heading of headings) {
       min-width: 0;
     }
 
-    /* Set off from the sections by a short rule. */
-    .extra {
+    /* Set off from the sections by a short rule: the icons alone, each a thumb's width, named for screen
+       readers by their hidden word and for a long press by their title. */
+    .actions {
+      display: flex;
       flex: none;
+      gap: 0;
+      align-self: stretch;
       margin: 0;
-      padding-right: calc(var(--gutter) - 0.6rem);
+      padding: 0 calc(var(--gutter) - 0.75rem) 0 0;
+      border-top: 0;
       border-left: 1px solid var(--line);
-      line-height: 1.4;
+    }
+
+    .toc > ul:empty + .actions {
+      margin-left: auto;
+      padding-top: 0;
+    }
+
+    .actions :global(.action) {
+      justify-content: center;
+      width: 2.5rem;
+    }
+
+    .actions :global(.word) {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
     }
 
     h2,

@@ -5,6 +5,7 @@
 // - A post's committed files (its folder and its notebook's data/, generated folders aside) stay under
 //   POST_BUDGET: git keeps every version of them for good.
 // - The build (dist/, when there is one) stays under SITE_BUDGET, half of GitHub Pages' 1 GB limit.
+// - In the build, each haunt in the header's menu jumps to an id its post's page has.
 // Past a budget, move the data out (see "Later" in the README) rather than raise it.
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
@@ -42,6 +43,7 @@ if (existsSync(dist)) {
   const size = sizeOf(dist);
   console.log(`check:posts: the build is ${mb(size)} (budget ${mb(SITE_BUDGET)})`);
   if (size > SITE_BUDGET) problems.push(`${relative(web, dist)}: ${mb(size)}, over the ${mb(SITE_BUDGET)} budget`);
+  problems.push(...brokenHaunts(dist));
 }
 
 if (problems.length) {
@@ -49,6 +51,22 @@ if (problems.length) {
   process.exit(1);
 }
 console.log("check:posts: every post is within its limits");
+
+/**
+ * The Haunts menu's links (data-haunt, on every page) whose post has no element with their id: a figure
+ * renamed or removed. A notebook post's ids are inside its export, where they may sit in escaped JSON.
+ */
+function brokenHaunts(dist) {
+  const home = join(dist, "index.html");
+  if (!existsSync(home)) return [];
+  const links = [...readFileSync(home, "utf8").matchAll(/<a\b[^>]*\bhref="[^"]*\/posts\/([\w-]+)\/#([\w-]+)"[^>]*\bdata-haunt\b/g)];
+  return links.flatMap(([, slug, id]) => {
+    const pages = [join(dist, "posts", slug, "index.html"), join(dist, "posts", slug, "notebook", "index.html")];
+    const html = pages.filter(existsSync).map((page) => readFileSync(page, "utf8")).join("");
+    const found = new RegExp(`\\bid=\\\\*["']${id}\\\\*["']`).test(html);
+    return found ? [] : [`${slug}: its haunt jumps to #${id}, but nothing on its page has that id`];
+  });
+}
 
 /** Bytes in a file or folder, leaving out the named subfolders at its top level. */
 function sizeOf(path, skip = new Set()) {

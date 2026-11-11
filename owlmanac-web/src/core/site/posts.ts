@@ -66,3 +66,24 @@ export function nextRead(post: Post, posts: Post[]): { post: Post; inSeries: boo
   const best = [...others].sort((a, b) => shared(b) - shared(a))[0];
   return best ? { post: best, inSeries: false } : undefined;
 }
+
+export interface Haunt {
+  post: Post;
+  /** The element on the post's page it scrolls to. */
+  id: string;
+  /** Its name in the menu. */
+  label: string;
+}
+
+/** The Haunts menu: every post's haunts by group, groups and the haunts in each in alphabetical order. */
+export function haunts(posts: Post[]): { group: string; haunts: Haunt[] }[] {
+  const groups = new Map<string, Haunt[]>();
+  for (const post of posts) {
+    for (const { group, id, label = post.data.title } of post.data.haunts ?? []) {
+      groups.set(group, [...(groups.get(group) ?? []), { post, id, label }]);
+    }
+  }
+  return [...groups]
+    .map(([group, list]) => ({ group, haunts: list.sort((a, b) => a.label.localeCompare(b.label)) }))
+    .sort((a, b) => a.group.localeCompare(b.group));
+}

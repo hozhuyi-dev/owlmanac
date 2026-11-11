@@ -27,6 +27,19 @@ const posts = defineCollection({
       coverAlt: z.string().optional(),
       coverCredit: z.string().optional(),
       draft: z.boolean().default(false),
+      // What readers come back to (a game, a puzzle, a tool): each is a shortcut in the header's Haunts menu,
+      // under its group, and in the post's contents. `id` is the element it scrolls to (<Figure id="play">);
+      // `label` names it in the menu (the post's title by default), `action` in the contents ("Play").
+      haunts: z
+        .array(
+          z.object({
+            group: z.string(),
+            id: z.string().regex(/^[a-z0-9-]+$/),
+            label: z.string().optional(),
+            action: z.string(),
+          }),
+        )
+        .default([]),
       // The post is owlmanac-notebooks/<notebook>/notebook.py, exported to the post's notebook/ and shown full width.
       notebook: z.string().optional(),
     }),

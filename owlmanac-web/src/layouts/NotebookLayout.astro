@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import PostLayout from "@/layouts/PostLayout.astro";
 import { notebookHeadings } from "@/core/site/notebook-headings";
+import Icon from "@/components/site/Icon.astro";
 import { artSvg } from "@/core/site/owl-art";
 import type { Post } from "@/core/site/posts";
 
@@ -26,8 +27,9 @@ const missing = import.meta.env.DEV
 <PostLayout post={post} headings={headings} meta="A notebook, run in your browser" within="iframe.notebook">
   {
     exported && (
-      <button slot="contents" type="button" class="code-toggle" aria-pressed="false">
-        Show code
+      <button slot="contents" type="button" class="action code-toggle" aria-pressed="false" title="Show code">
+        <Icon name="code" size={16} />
+        <span class="word">Show code</span>
       </button>
     )
   }
@@ -168,49 +170,8 @@ const missing = import.meta.env.DEV
     padding-block: 2rem;
   }
 
-  /* "Show code", in the contents: a pill like the home page's topics, filled while code shows. */
-  .code-toggle {
-    padding: 0.22rem 0.8rem;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    background: none;
-    color: var(--muted);
-    font: 400 0.8rem var(--font-sans);
-    white-space: nowrap;
-    cursor: pointer;
-  }
-
-  .code-toggle:hover {
-    border-color: var(--muted);
-    color: var(--fg);
-  }
-
-  .code-toggle[aria-pressed="true"] {
-    border-color: var(--fg);
-    background: var(--fg);
-    color: var(--bg);
-    font-weight: 500;
-  }
-
-  /* In the phone's contents bar it reads as one of the bar's items, in line with the sections; on, it
-     takes the accent (not bold, so it never changes width). */
-  @media (max-width: 63.99rem) {
-    .code-toggle,
-    .code-toggle:hover,
-    .code-toggle[aria-pressed="true"] {
-      display: block;
-      padding: 0 0.6rem;
-      border: 0;
-      border-radius: 0;
-      background: none;
-      color: var(--muted);
-      font: 300 0.85rem/1.4 var(--font-sans);
-    }
-
-    .code-toggle[aria-pressed="true"] {
-      color: var(--accent);
-    }
-  }
+  /* "Show code" is one of the contents' actions, styled there (TableOfContents): the code icon and its
+     word, or the icon alone on a phone; in the accent while code shows. */
 
   .notebook-toast {
     position: fixed;

@@ -1,10 +1,12 @@
 ---
 interface Props {
   caption: string;
+  /** Where a link can jump to: a haunt's `id` (`posts/<slug>/#play`). */
+  id?: string;
 }
 ---
 
-<figure>
+<figure id={Astro.props.id}>
   <slot />
   <figcaption>{Astro.props.caption}</figcaption>
 </figure>
