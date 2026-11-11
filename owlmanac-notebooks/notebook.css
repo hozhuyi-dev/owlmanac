@@ -124,10 +124,13 @@ input[type="range"] {
   padding-top: 0;
 }
 
-/* While code is hidden (below), every cell is as a prose cell: no box, its output in line with the text. */
+/* While code is hidden (below), every cell is as a prose cell: no box, its output in line with the text.
+   Important, as marimo's hover and focus states set a 1px border again (and a shadow, focused), which
+   moved the text a pixel under the pointer; overriding each of its states would chase marimo's classes. */
 .in-post .marimo-cell.borderless,
 .in-post:not(.show-code) .marimo-cell {
-  border-width: 0;
+  border-width: 0 !important;
+  box-shadow: none !important;
 }
 
 .in-post .marimo-cell.borderless .output-area,
