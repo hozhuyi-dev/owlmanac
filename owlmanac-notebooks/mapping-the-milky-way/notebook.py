@@ -34,7 +34,6 @@ def _():
 
     import altair as alt
     import marimo as mo
-    import polars as pl
 
     alt.data_transformers.disable_max_rows()
 
@@ -78,35 +77,61 @@ def _():
     # Lab, which keeps the shades between its colours muted.
     COUNTS = alt.Scale(type="log", interpolate="lab")
 
-    return COUNTS, DUSK, IN_BROWSER, REFRESH, SERIES, alt, importlib, json, math, mo, pl
+    def chart_data(rows, *fields):
+        """The `fields` of `rows`, inline in a chart as CSV. As JSON, rows repeat every key in every row,
+        which the export's embedded outputs carry for every chart: CSV is half the size."""
+        lines = [",".join(fields)]
+        lines += [",".join(str(row[f]) for f in fields) for row in rows]
+        numbers = {
+            f: "number" for f in fields if rows and isinstance(rows[0][f], (int, float))
+        }
+        return alt.InlineData(
+            values="\n".join(lines), format={"type": "csv", "parse": numbers}
+        )
+
+    return (
+        COUNTS,
+        DUSK,
+        IN_BROWSER,
+        REFRESH,
+        SERIES,
+        alt,
+        chart_data,
+        importlib,
+        json,
+        math,
+        mo,
+    )
 
 
 @app.cell
-def _(IN_BROWSER, REFRESH, importlib, json, mo, pl):
+def _(IN_BROWSER, REFRESH, importlib, json, mo):
     def local_only(module):
         """Imports a module that only local runs use, for querying Gaia. The browser downloads every
         package a notebook names in an import statement, so these are imported by name instead."""
         return importlib.import_module(module)
 
     async def cached(name, query):
-        """The result of `query()`, a slow Gaia query, kept in data/<name>.json beside this notebook.
-        JSON rather than parquet: in the browser, polars reads files only through pyarrow (10 MB more),
-        while Python's json module is already there."""
+        """The rows (a list of dicts) of `query()`, a slow Gaia query, kept in data/<name>.json beside
+        this notebook. Rows, not a DataFrame: Polars is an 18 MB download that, with Python itself, is
+        more than a phone's browser can hold, and Altair and marimo's tables take rows as they are."""
         if IN_BROWSER:
             from pyodide.http import pyfetch
 
             response = await pyfetch(
                 str(mo.notebook_location() / "data" / f"{name}.json")
             )
-            return pl.DataFrame(json.loads(await response.string()))
+            return json.loads(await response.string())
         path = mo.notebook_dir() / "data" / f"{name}.json"
         if REFRESH or not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
-            query().write_json(path)
-        return pl.read_json(path)
+            path.write_text(json.dumps(query(), separators=(",", ":")), "utf-8")
+        return json.loads(path.read_text("utf-8"))
 
     def adql(query):
-        """Runs an ADQL query on the Gaia archive's servers, and returns its result."""
+        """Runs an ADQL query on the Gaia archive's servers, and returns its result as a Polars
+        DataFrame (local runs only)."""
+        pl = local_only("polars")
         Gaia = local_only("astroquery.gaia").Gaia
         return pl.from_pandas(Gaia.launch_job_async(query).get_results().to_pandas())
 
@@ -122,7 +147,7 @@ def _(mo):
 
     The Gaia archive offers several ways in. The simplest is the query object, which retrieves a small, predefined subset of data. The cone search method is designed for spatial queries: you give a point on the sky and a radius, and Gaia returns all sources within that circle. For larger or more complex queries, `launch_job` submits a custom query written in ADQL (Astronomical Data Query Language), a dialect of SQL tailored for astronomical data.
 
-    Because the catalog holds more than a billion records, queries run asynchronously on the archive's servers. Each query below ran there once; its result is cached in a small parquet file, which is what your browser reads.
+    Because the catalog holds more than a billion records, queries run asynchronously on the archive's servers. Each query below ran there once; its result is cached in a small JSON file, which is what your browser reads.
 
     ### First Glimpse of the Milky Way
 
@@ -132,10 +157,11 @@ def _(mo):
 
 
 @app.cell
-async def _(cached, local_only, pl):
+async def _(cached, local_only, mo):
     GLIMPSE = {"ra": 266.4, "dec": -29.0, "width": 0.2}
 
     def query_glimpse():
+        pl = local_only("polars")
         u = local_only("astropy.units")
         SkyCoord = local_only("astropy.coordinates").SkyCoord
         Gaia = local_only("astroquery.gaia").Gaia
@@ -151,12 +177,19 @@ async def _(cached, local_only, pl):
                 coordinate=centre, width=side, height=side
             ).to_pandas()
         )
-        return stars.select(
-            pl.col("source_id").cast(pl.String), "ra", "dec", g_mag="phot_g_mean_mag"
-        ).drop_nulls()
+        return (
+            stars.select(
+                pl.col("source_id").cast(pl.String),
+                "ra",
+                "dec",
+                g_mag="phot_g_mean_mag",
+            )
+            .drop_nulls()
+            .to_dicts()
+        )
 
     glimpse = await cached("glimpse", query_glimpse)
-    glimpse
+    mo.ui.table(glimpse)
     return GLIMPSE, glimpse
 
 
@@ -183,15 +216,19 @@ def _(mo):
 
 
 @app.cell
-def _(GLIMPSE, alt, faintest, glimpse, mo, pl):
+def _(GLIMPSE, alt, chart_data, faintest, glimpse, mo):
     _half = GLIMPSE["width"] / 2
-    _shown = (
-        glimpse.filter(pl.col("g_mag") <= faintest.value)
-        .with_columns(brightness=21 - pl.col("g_mag"))
-        .sort("g_mag", descending=True)  # faint stars first, so bright ones draw on top
+    _shown = sorted(
+        (
+            {**star, "brightness": 21 - star["g_mag"]}
+            for star in glimpse
+            if star["g_mag"] <= faintest.value
+        ),
+        key=lambda star: star["g_mag"],
+        reverse=True,  # faint stars first, so bright ones draw on top
     )
     _chart = (
-        alt.Chart(_shown)
+        alt.Chart(chart_data(_shown, "source_id", "ra", "dec", "g_mag", "brightness"))
         .mark_circle(opacity=0.85)
         .encode(
             x=alt.X(
@@ -231,7 +268,7 @@ def _(GLIMPSE, alt, faintest, glimpse, mo, pl):
     mo.vstack(
         [
             faintest,
-            mo.md(f"Showing **{_shown.height:,}** of {glimpse.height:,} stars."),
+            mo.md(f"Showing **{len(_shown):,}** of {len(glimpse):,} stars."),
             _chart,
         ]
     )
@@ -334,10 +371,11 @@ def _(mo):
 
 
 @app.cell
-async def _(adql, cached, local_only, pl):
+async def _(adql, cached, local_only, mo):
     ORDER = 4
 
     def query_healpix():
+        pl = local_only("polars")
         u = local_only("astropy.units")
         ICRS = local_only("astropy.coordinates").ICRS
         HEALPix = local_only("astropy_healpix").HEALPix
@@ -358,15 +396,15 @@ async def _(adql, cached, local_only, pl):
             dec=pl.Series(centres.dec.deg),
             l=pl.Series(centres.galactic.l.wrap_at(180 * u.deg).deg),
             b=pl.Series(centres.galactic.b.deg),
-        )
+        ).to_dicts()
 
     healpix = await cached("healpix-density", query_healpix)
-    healpix
+    mo.ui.table(healpix)
     return (healpix,)
 
 
 @app.cell
-def _(COUNTS, alt):
+def _(COUNTS, alt, chart_data):
     def sky_map(pixels, lon, lat, lon_title, lat_title):
         """An Equal Earth map of star counts per pixel; longitude increases to the left, as on the sky."""
         sphere = alt.Chart(alt.sphere()).mark_geoshape(
@@ -376,7 +414,7 @@ def _(COUNTS, alt):
             fill=None, stroke="#888", strokeOpacity=0.2
         )
         stars = (
-            alt.Chart(pixels)
+            alt.Chart(chart_data(pixels, "healpix", lon, lat, "star_count"))
             .transform_calculate(flipped=f"-datum.{lon}")
             .mark_circle(size=42, opacity=1)
             .encode(
@@ -462,12 +500,12 @@ def _(mo):
 
 
 @app.cell
-def _(band, healpix, mo, pl):
-    _in_band = pl.col("b").abs() <= band.value
-    _stars, _sky = healpix.select(
-        pl.col("star_count").filter(_in_band).sum() / pl.col("star_count").sum(),
-        _in_band.mean(),
-    ).row(0)
+def _(band, healpix, mo):
+    _in_band = [pixel for pixel in healpix if abs(pixel["b"]) <= band.value]
+    _sky = len(_in_band) / len(healpix)
+    _stars = sum(pixel["star_count"] for pixel in _in_band) / sum(
+        pixel["star_count"] for pixel in healpix
+    )
     mo.hstack(
         [
             mo.stat(f"{_sky:.0%}", label=f"of the sky within ±{band.value}°"),
@@ -490,8 +528,9 @@ def _(mo):
 
 
 @app.cell
-async def _(adql, cached, math, pl):
+async def _(adql, cached, local_only, math, mo):
     def query_plane(limit):
+        pl = local_only("polars")
         bin_size = math.floor(limit / math.sqrt(5000) * 2)
         counts = adql(f"""
             SELECT
@@ -510,32 +549,29 @@ async def _(adql, cached, math, pl):
             x=pl.col("x_bin").cast(pl.Float64),
             y=pl.col("y_bin").cast(pl.Float64),
             star_count=pl.col("star_count").cast(pl.Int64),
-        )
+        ).to_dicts()
 
     plane_density = await cached(
-        "plane-density", lambda: pl.concat([query_plane(5000), query_plane(3000)])
+        "plane-density", lambda: query_plane(5000) + query_plane(3000)
     )
-    plane_density
+    mo.ui.table(plane_density)
     return (plane_density,)
 
 
 @app.cell
-def _(COUNTS, alt, pl):
+def _(COUNTS, alt, chart_data):
     def plane_map(plane_density, limit):
         """Star counts per bin on the Galactic plane, the Sun at the origin. A fixed square, as x and y are
         both parsecs; on a narrow screen it scrolls sideways in its own box."""
-        bins = plane_density.filter(pl.col("distance_limit") == limit).with_columns(
-            x_end=pl.col("x") + pl.col("bin_size"),
-            y_end=pl.col("y") + pl.col("bin_size"),
-        )
-        reach = float(
-            bins.select(
-                pl.max_horizontal(-pl.col("x"), "x_end", -pl.col("y"), "y_end").max()
-            ).item()
-        )
+        bins = [
+            {**b, "x_end": b["x"] + b["bin_size"], "y_end": b["y"] + b["bin_size"]}
+            for b in plane_density
+            if b["distance_limit"] == limit
+        ]
+        reach = float(max(max(-b["x"], b["x_end"], -b["y"], b["y_end"]) for b in bins))
         scale = alt.Scale(domain=[-reach, reach], nice=False)
         return (
-            alt.Chart(bins)
+            alt.Chart(chart_data(bins, "x", "y", "x_end", "y_end", "star_count"))
             .mark_rect()
             .encode(
                 x=alt.X(
@@ -601,19 +637,41 @@ def _(mo, plane_density, plane_map):
 
 
 @app.cell
-def _(mo, near):
-    _picked = near.value
-    if _picked.is_empty():
+def _(mo, near, plane_density):
+    # The chart's data is rows, not a DataFrame, so marimo can't filter it (near.value is every row);
+    # the dragged box is in near.selections, as {name: {"x": [from, to], "y": [from, to]}}. Bins are
+    # picked by their corner, as marimo picks rows; pan and zoom (pan_zoom…) is not a selection.
+    _box = next(
+        (
+            box
+            for name, box in near.selections.items()
+            if not name.startswith("pan_zoom") and "x" in box and "y" in box
+        ),
+        None,
+    )
+    _picked = (
+        [
+            b
+            for b in plane_density
+            if b["distance_limit"] == 3000
+            and min(_box["x"]) <= b["x"] <= max(_box["x"])
+            and min(_box["y"]) <= b["y"] <= max(_box["y"])
+        ]
+        if _box
+        else []
+    )
+    if not _picked:
         _out = mo.md("_Drag a box on the chart above to count the stars in it._")
     else:
         _out = mo.hstack(
             [
                 mo.stat(
-                    f"{int(_picked['star_count'].sum()):,}", label="stars selected"
+                    f"{sum(b['star_count'] for b in _picked):,}", label="stars selected"
                 ),
-                mo.stat(f"{_picked.height:,}", label="bins"),
+                mo.stat(f"{len(_picked):,}", label="bins"),
                 mo.stat(
-                    f"{int(_picked['star_count'].max()):,}", label="in the densest bin"
+                    f"{max(b['star_count'] for b in _picked):,}",
+                    label="in the densest bin",
                 ),
             ],
             justify="start",
