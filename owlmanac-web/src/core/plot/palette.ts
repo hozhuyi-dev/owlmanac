@@ -7,8 +7,8 @@
 export const SERIES = [
   "#3464a0", // indigo
   "#af5742", // terracotta
-  "#34a08e", // teal
-  "#bd8630", // ochre
+  "#309a88", // teal
+  "#b5802e", // ochre
   "#855290", // plum
   "#69954f", // moss
 ];

@@ -24,6 +24,13 @@ const missing = import.meta.env.DEV
 ---
 
 <PostLayout post={post} headings={headings} meta="A notebook, run in your browser" within="iframe.notebook">
+  {
+    exported && (
+      <button slot="contents" type="button" class="code-toggle" aria-pressed="false">
+        Show code
+      </button>
+    )
+  }
   <p class="notebook-missing figure-status failed" hidden={exported}>{missing}</p>
   {
     exported && (
@@ -121,6 +128,16 @@ const missing = import.meta.env.DEV
     }, 250);
   }
 
+  // Code starts hidden in a post, so it reads as prose and charts (notebook.css). "Show code", kept in reach
+  // in the contents, marks the notebook's <html> with .show-code; nothing reloads, and inputs keep their
+  // values. The page scrolls the frame, so the notebook's own menu toggle is a long way down.
+  const toggle = document.querySelector<HTMLButtonElement>(".code-toggle");
+  toggle?.addEventListener("click", () => {
+    const show = toggle.getAttribute("aria-pressed") !== "true";
+    toggle.setAttribute("aria-pressed", String(show));
+    frame?.contentDocument?.documentElement.classList.toggle("show-code", show);
+  });
+
   // The frame can finish loading before this script runs (a cached visit), so attach now if it has.
   if (frame) {
     const doc = frame.contentDocument;
@@ -149,6 +166,50 @@ const missing = import.meta.env.DEV
 
   .notebook-missing {
     padding-block: 2rem;
+  }
+
+  /* "Show code", in the contents: a pill like the home page's topics, filled while code shows. */
+  .code-toggle {
+    padding: 0.22rem 0.8rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: none;
+    color: var(--muted);
+    font: 400 0.8rem var(--font-sans);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .code-toggle:hover {
+    border-color: var(--muted);
+    color: var(--fg);
+  }
+
+  .code-toggle[aria-pressed="true"] {
+    border-color: var(--fg);
+    background: var(--fg);
+    color: var(--bg);
+    font-weight: 500;
+  }
+
+  /* In the phone's contents bar it reads as one of the bar's items, in line with the sections; on, it
+     takes the accent (not bold, so it never changes width). */
+  @media (max-width: 63.99rem) {
+    .code-toggle,
+    .code-toggle:hover,
+    .code-toggle[aria-pressed="true"] {
+      display: block;
+      padding: 0 0.6rem;
+      border: 0;
+      border-radius: 0;
+      background: none;
+      color: var(--muted);
+      font: 300 0.85rem/1.4 var(--font-sans);
+    }
+
+    .code-toggle[aria-pressed="true"] {
+      color: var(--accent);
+    }
   }
 
   .notebook-toast {

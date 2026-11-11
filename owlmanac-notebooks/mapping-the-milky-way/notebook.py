@@ -1,11 +1,14 @@
-"""Mapping the Milky Way: the post, as a notebook. Locally it queries Gaia (or reads its cache in data/);
-exported, it runs in the reader's browser and reads the same cache over HTTP."""
+"""Mapping the Milky Way: the post, as a notebook. Locally it queries Gaia (or
+reads its cache in data/); exported, it runs in the reader's browser and reads
+the same cache over HTTP."""
 
 import marimo
 
 __generated_with = "0.25.2"
 app = marimo.App(
-    width="compact", app_title="Mapping the Milky Way", css_file="../notebook.css"
+    width="compact",
+    app_title="Mapping the Milky Way",
+    css_file="../notebook.css",
 )
 
 
@@ -20,7 +23,7 @@ def _(mo):
 
     This post turns that question into a data-driven exploration using Gaia Data Release 3 (DR3). By querying and processing Gaia's precise astrometric measurements, we can reconstruct how the Milky Way appears from our vantage point.
 
-    This page is a [marimo](https://marimo.io) notebook, and it is running in your browser: the Python below executes in WebAssembly, with nothing on a server. Cells are reactive, so when you move a slider, every cell that depends on it runs again. Expand any cell's code to see how its output was made.
+    This page is a [marimo](https://marimo.io) notebook, and it is running in your browser: the Python below executes in WebAssembly, with nothing on a server. Cells are reactive, so when you move a slider, every cell that depends on it runs again. The code is hidden so the story reads straight through: **Show code**, with the contents, shows how each output was made.
     """)
     return
 
@@ -37,22 +40,35 @@ def _():
 
     alt.data_transformers.disable_max_rows()
 
-    # In the browser (Pyodide) the notebook can't reach the Gaia archive, so it reads the cached results.
+    # In the browser (Pyodide) the notebook can't reach the Gaia archive, so it
+    # reads the cached results.
     IN_BROWSER = sys.platform == "emscripten"
-    # Gaia queries are slow, so their results are cached in data/; set REFRESH to query the archive again.
+    # Gaia queries are slow, so their results are cached in data/; set REFRESH
+    # to query the archive again.
     REFRESH = False
 
-    # Owlmanac's chart colours, checked for contrast and colour-blind separation. Series pass on both the
-    # site's dark (#2b2b2b) and light pages. Magnitude is "dusk", a muted turbo: deep indigo through plum,
-    # brick and ochre to unbleached cream. Its lightness only rises, so more always reads brighter (turbo's
-    # rises and falls, drawing false edges), and dense regions glow on the dark page, the site's default.
+    # Owlmanac's chart colours, checked for contrast and colour-blind
+    # separation. Series pass on both the site's dark (#2b2b2b) and light
+    # pages. Magnitude is "dusk", a muted turbo: deep indigo through plum,
+    # brick and ochre to unbleached cream. Its lightness only rises, so more
+    # always reads brighter (turbo's rises and falls, drawing false edges), and
+    # dense regions glow on the dark page, the site's default.
     SERIES = ["#4e7cb7", "#ba664c", "#0e9a94", "#b18334", "#9d6298", "#71934c"]
-    DUSK = ["#48588b", "#836192", "#b76d79", "#d18968", "#daaa6f", "#e1ca94", "#eee4c7"]
+    DUSK = [
+        "#48588b",
+        "#836192",
+        "#b76d79",
+        "#d18968",
+        "#daaa6f",
+        "#e1ca94",
+        "#eee4c7",
+    ]
 
     @alt.theme.register("owlmanac", enable=True)
     def owlmanac():
-        """The site's font, a transparent background and its colours. No axis or text colours: marimo
-        sets those for the page's theme, and a theme's would override them."""
+        """The site's font, a transparent background and its colours. No axis
+        or text colours: marimo sets those for the page's theme, and a theme's
+        would override them."""
         return {
             "config": {
                 "background": "transparent",
@@ -73,17 +89,21 @@ def _():
             }
         }
 
-    # Star counts span up to six orders of magnitude: a log scale, blended through the theme's dusk ramp in
-    # Lab, which keeps the shades between its colours muted.
+    # Star counts span up to six orders of magnitude: a log scale, blended
+    # through the theme's dusk ramp in Lab, which keeps the shades between its
+    # colours muted.
     COUNTS = alt.Scale(type="log", interpolate="lab")
 
     def chart_data(rows, *fields):
-        """The `fields` of `rows`, inline in a chart as CSV. As JSON, rows repeat every key in every row,
-        which the export's embedded outputs carry for every chart: CSV is half the size."""
+        """The `fields` of `rows`, inline in a chart as CSV. As JSON, rows
+        repeat every key in every row, which the export's embedded outputs
+        carry for every chart: CSV is half the size."""
         lines = [",".join(fields)]
         lines += [",".join(str(row[f]) for f in fields) for row in rows]
         numbers = {
-            f: "number" for f in fields if rows and isinstance(rows[0][f], (int, float))
+            f: "number"
+            for f in fields
+            if rows and isinstance(rows[0][f], (int, float))
         }
         return alt.InlineData(
             values="\n".join(lines), format={"type": "csv", "parse": numbers}
@@ -107,16 +127,20 @@ def _():
 @app.cell
 def _(IN_BROWSER, REFRESH, importlib, json, mo):
     def local_only(module):
-        """Imports a module that only local runs use, for querying Gaia. The browser downloads every
-        package a notebook names in an import statement, so these are imported by name instead."""
+        """Imports a module that only local runs use, for querying Gaia. The
+        browser downloads every package a notebook names in an import
+        statement, so these are imported by name instead."""
         return importlib.import_module(module)
 
     async def cached(name, query):
-        """The rows (a list of dicts) of `query()`, a slow Gaia query, kept in data/<name>.json beside
-        this notebook. Rows, not a DataFrame: Polars is an 18 MB download that, with Python itself, is
-        more than a phone's browser can hold, and Altair and marimo's tables take rows as they are."""
+        """The rows (a list of dicts) of `query()`, a slow Gaia query, kept in
+        data/<name>.json beside this notebook. Rows, not a DataFrame: Polars is
+        an 18 MB download that, with Python itself, is more than a phone's
+        browser can hold, and Altair and marimo's tables take rows as they are.
+        """
         if IN_BROWSER:
-            from pyodide.http import pyfetch
+            # Pyodide's own module, built into the browser's Python only.
+            from pyodide.http import pyfetch  # ty: ignore[import-not-found]
 
             response = await pyfetch(
                 str(mo.notebook_location() / "data" / f"{name}.json")
@@ -125,15 +149,19 @@ def _(IN_BROWSER, REFRESH, importlib, json, mo):
         path = mo.notebook_dir() / "data" / f"{name}.json"
         if REFRESH or not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps(query(), separators=(",", ":")), "utf-8")
+            path.write_text(
+                json.dumps(query(), separators=(",", ":")), "utf-8"
+            )
         return json.loads(path.read_text("utf-8"))
 
     def adql(query):
-        """Runs an ADQL query on the Gaia archive's servers, and returns its result as a Polars
-        DataFrame (local runs only)."""
+        """Runs an ADQL query on the Gaia archive's servers, and returns its
+        result as a Polars DataFrame (local runs only)."""
         pl = local_only("polars")
         Gaia = local_only("astroquery.gaia").Gaia
-        return pl.from_pandas(Gaia.launch_job_async(query).get_results().to_pandas())
+        return pl.from_pandas(
+            Gaia.launch_job_async(query).get_results().to_pandas()
+        )
 
     return adql, cached, local_only
 
@@ -170,7 +198,10 @@ async def _(cached, local_only, mo):
         Gaia.ROW_LIMIT = 5000
         side = u.Quantity(GLIMPSE["width"], u.deg)
         centre = SkyCoord(
-            ra=GLIMPSE["ra"], dec=GLIMPSE["dec"], unit=(u.deg, u.deg), frame="icrs"
+            ra=GLIMPSE["ra"],
+            dec=GLIMPSE["dec"],
+            unit=(u.deg, u.deg),
+            frame="icrs",
         )
         stars = pl.from_pandas(
             Gaia.query_object_async(
@@ -228,21 +259,25 @@ def _(GLIMPSE, alt, chart_data, faintest, glimpse, mo):
         reverse=True,  # faint stars first, so bright ones draw on top
     )
     _chart = (
-        alt.Chart(chart_data(_shown, "source_id", "ra", "dec", "g_mag", "brightness"))
+        alt.Chart(
+            chart_data(_shown, "source_id", "ra", "dec", "g_mag", "brightness")
+        )
         .mark_circle(opacity=0.85)
         .encode(
             x=alt.X(
                 "ra:Q",
                 title="Right ascension (°)",
                 scale=alt.Scale(
-                    domain=[GLIMPSE["ra"] - _half, GLIMPSE["ra"] + _half], nice=False
+                    domain=[GLIMPSE["ra"] - _half, GLIMPSE["ra"] + _half],
+                    nice=False,
                 ),
             ),
             y=alt.Y(
                 "dec:Q",
                 title="Declination (°)",
                 scale=alt.Scale(
-                    domain=[GLIMPSE["dec"] - _half, GLIMPSE["dec"] + _half], nice=False
+                    domain=[GLIMPSE["dec"] - _half, GLIMPSE["dec"] + _half],
+                    nice=False,
                 ),
             ),
             size=alt.Size(
@@ -250,7 +285,8 @@ def _(GLIMPSE, alt, chart_data, faintest, glimpse, mo):
                 scale=alt.Scale(domain=[0, 12], range=[2, 160], clamp=True),
                 legend=None,
             ),
-            # The theme's dusk ramp: faint stars small and deep, bright ones large and pale, as on a dark sky.
+            # The theme's dusk ramp: faint stars small and deep, bright ones
+            # large and pale, as on a dark sky.
             color=alt.Color(
                 "brightness:Q",
                 title="21 − G",
@@ -399,14 +435,17 @@ async def _(adql, cached, local_only, mo):
         ).to_dicts()
 
     healpix = await cached("healpix-density", query_healpix)
-    mo.ui.table(healpix)
+    mo.accordion(
+        {"The 3072 pixels and their star counts": mo.ui.table(healpix)}
+    )
     return (healpix,)
 
 
 @app.cell
 def _(COUNTS, alt, chart_data):
     def sky_map(pixels, lon, lat, lon_title, lat_title):
-        """An Equal Earth map of star counts per pixel; longitude increases to the left, as on the sky."""
+        """An Equal Earth map of star counts per pixel; longitude increases to
+        the left, as on the sky."""
         sphere = alt.Chart(alt.sphere()).mark_geoshape(
             fill=None, stroke="#888", strokeOpacity=0.5
         )
@@ -554,24 +593,35 @@ async def _(adql, cached, local_only, math, mo):
     plane_density = await cached(
         "plane-density", lambda: query_plane(5000) + query_plane(3000)
     )
-    mo.ui.table(plane_density)
+    mo.accordion(
+        {"The bins and their star counts": mo.ui.table(plane_density)}
+    )
     return (plane_density,)
 
 
 @app.cell
 def _(COUNTS, alt, chart_data):
     def plane_map(plane_density, limit):
-        """Star counts per bin on the Galactic plane, the Sun at the origin. A fixed square, as x and y are
-        both parsecs; on a narrow screen it scrolls sideways in its own box."""
+        """Star counts per bin on the Galactic plane, the Sun at the origin. A
+        fixed square, as x and y are both parsecs; on a narrow screen it
+        scrolls sideways in its own box."""
         bins = [
-            {**b, "x_end": b["x"] + b["bin_size"], "y_end": b["y"] + b["bin_size"]}
+            {
+                **b,
+                "x_end": b["x"] + b["bin_size"],
+                "y_end": b["y"] + b["bin_size"],
+            }
             for b in plane_density
             if b["distance_limit"] == limit
         ]
-        reach = float(max(max(-b["x"], b["x_end"], -b["y"], b["y_end"]) for b in bins))
+        reach = float(
+            max(max(-b["x"], b["x_end"], -b["y"], b["y_end"]) for b in bins)
+        )
         scale = alt.Scale(domain=[-reach, reach], nice=False)
         return (
-            alt.Chart(chart_data(bins, "x", "y", "x_end", "y_end", "star_count"))
+            alt.Chart(
+                chart_data(bins, "x", "y", "x_end", "y_end", "star_count")
+            )
             .mark_rect()
             .encode(
                 x=alt.X(
@@ -581,7 +631,9 @@ def _(COUNTS, alt, chart_data):
                 ),
                 x2="x_end:Q",
                 y=alt.Y(
-                    "y:Q", title="↑ Galactic Y (pc), direction of rotation", scale=scale
+                    "y:Q",
+                    title="↑ Galactic Y (pc), direction of rotation",
+                    scale=scale,
                 ),
                 y2="y_end:Q",
                 color=alt.Color(
@@ -638,9 +690,11 @@ def _(mo, plane_density, plane_map):
 
 @app.cell
 def _(mo, near, plane_density):
-    # The chart's data is rows, not a DataFrame, so marimo can't filter it (near.value is every row);
-    # the dragged box is in near.selections, as {name: {"x": [from, to], "y": [from, to]}}. Bins are
-    # picked by their corner, as marimo picks rows; pan and zoom (pan_zoom…) is not a selection.
+    # The chart's data is rows, not a DataFrame, so marimo can't filter it
+    # (near.value is every row); the dragged box is in near.selections, as
+    # {name: {"x": [from, to], "y": [from, to]}}. Bins are picked by their
+    # corner, as marimo picks rows; pan and zoom (pan_zoom…) is not a
+    # selection.
     _box = next(
         (
             box
@@ -661,12 +715,15 @@ def _(mo, near, plane_density):
         else []
     )
     if not _picked:
-        _out = mo.md("_Drag a box on the chart above to count the stars in it._")
+        _out = mo.md(
+            "_Drag a box on the chart above to count the stars in it._"
+        )
     else:
         _out = mo.hstack(
             [
                 mo.stat(
-                    f"{sum(b['star_count'] for b in _picked):,}", label="stars selected"
+                    f"{sum(b['star_count'] for b in _picked):,}",
+                    label="stars selected",
                 ),
                 mo.stat(f"{len(_picked):,}", label="bins"),
                 mo.stat(

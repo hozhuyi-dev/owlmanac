@@ -17,7 +17,13 @@ const next = nextRead(Astro.props.post, Astro.props.posts);
     <nav class="next-read" aria-label="Read next">
       <a href={url(`posts/${next.post.id}/`)}>
         {next.post.data.cover && (
-          <PostCover src={next.post.data.cover} alt="" widths={[400, 800]} sizes="(min-width: 40rem) 16rem, 100vw" />
+          <PostCover
+            src={next.post.data.cover}
+            alt=""
+            widths={[400, 800]}
+            sizes="(min-width: 40rem) 16rem, 100vw"
+            drawn={!next.post.data.coverCredit}
+          />
         )}
         <span class="text">
           <span class="eyebrow">{next.inSeries ? "Next in the series" : "Read next"}</span>

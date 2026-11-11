@@ -33,13 +33,29 @@ const { title, description, cover, coverAlt, coverCredit, notebook } = post.data
       <SeriesNav post={post} posts={posts} />
     </header>
     <aside class="contents">
-      <TableOfContents headings={headings} within={within} />
+      {/* A layout's "contents" slot goes into the contents: a control kept in reach (NotebookLayout). */}
+      {
+        Astro.slots.has("contents") ? (
+          <TableOfContents headings={headings} within={within}>
+            <slot name="contents" />
+          </TableOfContents>
+        ) : (
+          <TableOfContents headings={headings} within={within} />
+        )
+      }
     </aside>
     <article>
       {
         cover && (
           <figure class="cover-figure">
-            <Image src={cover} alt={coverAlt ?? ""} widths={[800, 1600]} sizes="(min-width: 44rem) 44rem, 100vw" loading="eager" />
+            <Image
+              class:list={[{ "drawn-cover": !coverCredit }]}
+              src={cover}
+              alt={coverAlt ?? ""}
+              widths={[800, 1600]}
+              sizes="(min-width: 44rem) 44rem, 100vw"
+              loading="eager"
+            />
             {coverCredit && <figcaption>Image credit: {coverCredit}</figcaption>}
           </figure>
         )

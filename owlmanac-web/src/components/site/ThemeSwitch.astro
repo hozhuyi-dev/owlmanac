@@ -2,7 +2,9 @@
 import Icon from "@/components/site/Icon.astro";
 
 // The site is dark unless the reader picks light, or "auto" to follow their system; the choice is kept in
-// localStorage and applied in BaseLayout's head.
+// localStorage and applied in BaseLayout's head. On a phone, three small buttons are hard to hit and take
+// the header's room, so it's one button instead that flips night and day (dark and light), showing the
+// one in effect (by CSS, .by-night and .by-day, so it's right from the first paint).
 const themes = [
   { value: "auto", icon: "auto", label: "Follow system theme" },
   { value: "light", icon: "sun", label: "Light theme" },
@@ -19,6 +21,10 @@ const themes = [
     ))
   }
 </div>
+<button type="button" class="theme-flip" aria-label="Switch between light and dark theme" title="Switch between light and dark theme">
+  <span class="by-night"><Icon name="moon" size={16} /></span>
+  <span class="by-day"><Icon name="sun" size={16} /></span>
+</button>
 
 <script>
   const buttons = document.querySelectorAll<HTMLButtonElement>(".theme-switch button");
@@ -31,18 +37,24 @@ const themes = [
     return document.documentElement.dataset.theme ?? "dark";
   }
 
-  buttons.forEach((button) =>
-    button.addEventListener("click", () => {
-      const theme = button.dataset.themeValue!;
-      document.documentElement.dataset.theme = theme;
-      try {
-        localStorage.setItem("theme", theme);
-      } catch {
-        // Storage blocked (a private window): the choice lasts for this page only.
-      }
-      show(theme);
-    }),
-  );
+  function set(theme: string) {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem("theme", theme);
+    } catch {
+      // Storage blocked (a private window): the choice lasts for this page only.
+    }
+    show(theme);
+  }
+
+  /** Whether the page is dark now: chosen, or (auto) the system's. */
+  function isDark(): boolean {
+    const theme = current();
+    return theme === "auto" ? matchMedia("(prefers-color-scheme: dark)").matches : theme !== "light";
+  }
+
+  buttons.forEach((button) => button.addEventListener("click", () => set(button.dataset.themeValue!)));
+  document.querySelector(".theme-flip")?.addEventListener("click", () => set(isDark() ? "light" : "dark"));
   show(current());
 </script>
 
@@ -75,5 +87,27 @@ const themes = [
     background: var(--fg);
     color: var(--bg);
     opacity: 1;
+  }
+
+  /* The phone's one button: an outline circle like the switch, a comfortable tap. */
+  .theme-flip {
+    display: none;
+    padding: 0.4rem;
+    border: 1px solid currentColor;
+    opacity: 1;
+  }
+
+  .theme-flip span {
+    display: grid;
+  }
+
+  @media (max-width: 40rem) {
+    .theme-switch {
+      display: none;
+    }
+
+    .theme-flip {
+      display: grid;
+    }
   }
 </style>

@@ -3,20 +3,22 @@ import { Image } from "astro:assets";
 import type { ImageMetadata } from "astro";
 
 // A post's cover in a list: its real colours under a copy redrawn in the theme's (the .cover rules in
-// global.css), which fades away when the post is looked at. Both copies are the same files.
+// global.css), which fades away when the post is looked at. Both copies are the same files. A `drawn`
+// cover (drawn from the post's data, on charcoal; no credit) is shown inverted in light theme.
 interface Props {
   src: ImageMetadata;
   alt: string;
   widths: number[];
   sizes: string;
   eager?: boolean;
+  drawn?: boolean;
 }
 
-const { src, alt, widths, sizes, eager = false } = Astro.props;
+const { src, alt, widths, sizes, eager = false, drawn = false } = Astro.props;
 const loading = eager ? "eager" : "lazy";
 ---
 
 <span class="cover">
-  <Image class="real" src={src} alt={alt} widths={widths} sizes={sizes} loading={loading} />
+  <Image class:list={["real", { "drawn-cover": drawn }]} src={src} alt={alt} widths={widths} sizes={sizes} loading={loading} />
   <Image class="tint" src={src} alt="" widths={widths} sizes={sizes} loading={loading} aria-hidden="true" />
 </span>

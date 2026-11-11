@@ -3,7 +3,7 @@ import { SERIES } from "./palette";
 
 // The theme backgrounds (global.css): --bg's dark and light values.
 const DARK = "#2b2b2b";
-const LIGHT = "#ffffff";
+const LIGHT = "#f6f4ef";
 
 /** WCAG contrast ratio between two hex colours. */
 function contrast(a: string, b: string): number {

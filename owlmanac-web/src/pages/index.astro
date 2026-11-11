@@ -110,6 +110,18 @@ const allTopics = topics(posts);
       apply();
     }),
   );
+  // A row's topic filters the list in place (its link, ?tag=…, is for opening in a new tab), and brings
+  // the chips back into view if they've scrolled away, so the reader sees which filter is on.
+  const finder = document.querySelector<HTMLElement>(".finder")!;
+  for (const link of document.querySelectorAll<HTMLAnchorElement>("[data-tag-link]")) {
+    link.addEventListener("click", (event) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+      event.preventDefault();
+      tag = link.dataset.tagLink!;
+      apply();
+      if (finder.getBoundingClientRect().top < 0) finder.scrollIntoView({ block: "start" });
+    });
+  }
   nothing.querySelector(".clear")!.addEventListener("click", () => {
     q = tag = input.value = "";
     apply();
@@ -141,8 +153,8 @@ const allTopics = topics(posts);
 
   .lede a {
     color: var(--fg);
+    white-space: nowrap;
   }
-
   .finder {
     display: grid;
     gap: 1rem;
@@ -187,6 +199,13 @@ const allTopics = topics(posts);
     border-radius: 4px;
     font: 0.72rem var(--font-sans);
     transform: translateY(-50%);
+  }
+
+  /* The "/" shortcut needs a keyboard: a touch screen has none to press. */
+  @media (hover: none) {
+    .search kbd {
+      display: none;
+    }
   }
 
   /* Topics: one row, scrolling sideways on a phone; wrapped wider, where a mouse can't swipe a hidden scroller. */

@@ -1,31 +1,42 @@
 ---
-import { artSvg, firstQuip, type Pool } from "@/core/site/owl-art";
+import { artSvg, firstQuip, TIMES, type Pool } from "@/core/site/owl-art";
 
 // A quiet moment (nothing found, a missing page, something loading or broken): a drawing and a quip,
-// then the plain explanation in the slot. Built with the pool's first quip; a script picks one at random
-// on each visit. `busy` drawings draw themselves.
+// then the plain explanation in the slot. It has a night face and a day face, and the theme shows one
+// (.by-night, .by-day). Built with each pool's first quip; a script picks one at random on each visit.
+// `busy` drawings draw themselves.
 interface Props {
   pool: Pool;
 }
 
 const { pool } = Astro.props;
-const { quip, art } = firstQuip(pool);
 ---
 
 <div class:list={["quiet", pool]} data-pool={pool}>
-  <span class="quiet-art" set:html={artSvg(art, 64, { draw: pool === "busy" })} />
-  <p class="quiet-quip">{quip}</p>
+  {
+    TIMES.map((time) => {
+      const { quip, art } = firstQuip(pool, time);
+      return (
+        <div class:list={["quiet-face", `by-${time}`]} data-time={time}>
+          <span class="quiet-art" set:html={artSvg(art, 64, { draw: pool === "busy" })} />
+          <p class="quiet-quip">{quip}</p>
+        </div>
+      );
+    })
+  }
   <div class="quiet-text"><slot /></div>
 </div>
 
 <script>
-  import { artSvg, quipFor, type Pool } from "@/core/site/owl-art";
+  import { artSvg, quipFor, type Pool, type Time } from "@/core/site/owl-art";
 
   for (const el of document.querySelectorAll<HTMLElement>(".quiet[data-pool]")) {
     const pool = el.dataset.pool as Pool;
-    const { quip, art } = quipFor(pool);
-    el.querySelector(".quiet-quip")!.textContent = quip;
-    el.querySelector(".quiet-art")!.innerHTML = artSvg(art, 64, { draw: pool === "busy" });
+    for (const face of el.querySelectorAll<HTMLElement>(".quiet-face")) {
+      const { quip, art } = quipFor(pool, face.dataset.time as Time);
+      face.querySelector(".quiet-quip")!.textContent = quip;
+      face.querySelector(".quiet-art")!.innerHTML = artSvg(art, 64, { draw: pool === "busy" });
+    }
   }
 </script>
 
@@ -35,6 +46,11 @@ const { quip, art } = firstQuip(pool);
     justify-items: start;
     gap: 0.5rem;
     color: var(--muted);
+  }
+
+  /* A face's drawing and quip sit in the quiet moment's own grid. */
+  .quiet-face {
+    display: contents;
   }
 
   .quiet.broken .quiet-art {

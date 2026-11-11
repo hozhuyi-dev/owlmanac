@@ -3,7 +3,8 @@ import type { MarkdownHeading } from "astro";
 
 // A post's contents. Wide screens: a column of sections (h2) with their subsections (h3). A phone: a bar
 // of sections only, scrolling sideways, with a line along its foot for how far through the post you are.
-// Either way it marks the section being read.
+// Either way it marks the section being read. Its slot is for a control the post keeps in reach (a
+// notebook's "Show code"): under the list, or at the bar's end, outside what scrolls.
 interface Props {
   headings: MarkdownHeading[];
   /** What the contents cover, for the bar's progress: the post's <article>, or a notebook's <iframe>,
@@ -44,6 +45,13 @@ for (const heading of headings) {
           </li>
         ))}
       </ul>
+      {
+        Astro.slots.has("default") && (
+          <div class="extra">
+            <slot />
+          </div>
+        )
+      }
       <span class="progress" aria-hidden="true" />
     </nav>
   )
@@ -251,12 +259,32 @@ for (const heading of headings) {
     display: none;
   }
 
-  /* A phone: one row of sections under the header's place, scrolling sideways. */
+  .extra {
+    margin-top: 1.25rem;
+  }
+
+  /* A phone: one row of sections under the header's place, scrolling sideways, and the slot at its end. */
   @media (max-width: 63.99rem) {
     .toc {
       position: relative;
+      display: flex;
+      align-items: center;
       border-bottom: 1px solid var(--line);
       background: var(--bg);
+    }
+
+    .toc > ul {
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* Set off from the sections by a short rule. */
+    .extra {
+      flex: none;
+      margin: 0;
+      padding-right: calc(var(--gutter) - 0.6rem);
+      border-left: 1px solid var(--line);
+      line-height: 1.4;
     }
 
     h2,

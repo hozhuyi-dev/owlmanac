@@ -18,9 +18,18 @@ export const OWL = {
   line: "M4 50.4L9.4 50.6L6.6 47.6L9.4 50.6L24 51.1L22.6 48.6L21.4 49.2L21.2 46.8L19.6 46.4L20 44.2C18.2 38 17.4 30 17.8 24C18.1 19.6 18.4 15.6 18.8 12.6C18.8 9.4 18.4 5.8 18.4 2.2C20.4 3.8 22.4 6 25.6 6.6C28.6 6.8 31 5.4 33.2 1.8C33.8 5 34.4 8.4 34.6 10.8C38.4 15 41.2 21.4 42.6 28C44 34.4 46.2 40 45.8 44.6C45.6 47.4 43.6 49.6 41.6 51C41.4 55 40.8 58.4 39.8 61.4C39 58.4 38.4 55 38.2 51.8L60 52.6",
 };
 
-/** The filled mark as a whole <svg>, sized by its box. */
-export function owlMarkSvg(size: number): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true"><path d="${OWL.branch}" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round"/><path d="${OWL.body}" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></svg>`;
+/** The "z z" an asleep owl gives off, in the mark's 64 grid: rising from beside its head, in the space right of it. */
+const ZZ = "M49.2 19.6H53.4L49.2 24.6H53.4M55.2 7.6H61L55.2 14.6H61";
+
+/**
+ * The filled mark as a whole <svg>, sized by its box. `asleep` adds the "z z" as a .by-day path, which
+ * the theme shows by day only (the header's mark sleeps in light theme).
+ */
+export function owlMarkSvg(size: number, { asleep = false } = {}): string {
+  const zz = asleep
+    ? `<path class="by-day" d="${ZZ}" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`
+    : "";
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true"><path d="${OWL.branch}" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round"/><path d="${OWL.body}" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>${zz}</svg>`;
 }
 
 /** A dotted path: round caps on near-zero dashes draw dots. */
@@ -33,8 +42,15 @@ const ART = {
   flying:
     '<g transform="scale(0.5) translate(0 2.6)" stroke-width="3"><path pathLength="1" d="M32 19.6C35.4 19.6 37 21.4 36.8 24.4C37 25.6 37.6 26.6 38.4 27C45 23.6 52.6 17.4 59 10.4L57.6 16.6L59.6 18.4L55.4 21.8L57.4 24.2L52 26.6L53.2 29.2C47 30.4 41.4 31.6 37.8 34.4C37.6 38.2 36.6 41.2 34.8 43.4L36 48.6L32 47.2L28 48.6L29.2 43.4C27.4 41.2 26.4 38.2 26.2 34.4C22.6 31.6 17 30.4 10.8 29.2L12 26.6L6.6 24.2L8.6 21.8L4.4 18.4L6.4 16.6L5 10.4C11.4 17.4 19 23.6 25.6 27C26.4 26.6 27 25.6 27.2 24.4C27 21.4 28.6 19.6 32 19.6Z"/>' +
     '<path d="M29.2 25.6Q32 28.6 34.8 25.6M30.2 24.2h0M33.8 24.2h0"/></g>',
-  /** A barn owl perched, turned to face you: one line, its heart-shaped face included (64 grid, halved). */
-  barn: '<path pathLength="1" transform="scale(0.5)" stroke-width="3" d="M4 51L24 51.4C19 47 15.6 40 15.8 33C16 28 17.4 24.6 19 22.4C15.4 19 15 13 17.8 9.4C20 6.6 22.6 5.8 25 5.8V7.2C21.6 4.8 18.2 8 18.8 12.6C19.4 16.8 22.4 19.6 25 21.8C27.6 19.6 30.6 16.8 31.2 12.6C31.8 8 28.4 4.8 25 7.2V5.8C28.4 5.8 32.4 8.2 33.6 12.4C34.4 15 34.2 17 33.4 18.6C38 22 41.4 28 43.4 35C45.2 41.4 46.4 48.6 48.8 57.8L45.6 55.6L43.4 51.6L60 52.4"/>',
+  /** A barn owl perched, turned to face you, wide awake: one line, its heart-shaped face included (64 grid,
+   *  halved), and two eyes. */
+  barn:
+    '<path pathLength="1" transform="scale(0.5)" stroke-width="3" d="M4 51L24 51.4C19 47 15.6 40 15.8 33C16 28 17.4 24.6 19 22.4C15.4 19 15 13 17.8 9.4C20 6.6 22.6 5.8 25 5.8V7.2C21.6 4.8 18.2 8 18.8 12.6C19.4 16.8 22.4 19.6 25 21.8C27.6 19.6 30.6 16.8 31.2 12.6C31.8 8 28.4 4.8 25 7.2V5.8C28.4 5.8 32.4 8.2 33.6 12.4C34.4 15 34.2 17 33.4 18.6C38 22 41.4 28 43.4 35C45.2 41.4 46.4 48.6 48.8 57.8L45.6 55.6L43.4 51.6L60 52.4"/>' +
+    '<path stroke-width="1.8" d="M11 6.4h0M14 6.4h0"/>',
+  /** The owl from behind, asleep on its branch: the mark's line, and a "z z" rising beside its head. */
+  asleep:
+    `<path pathLength="1" transform="scale(0.5)" stroke-width="3" d="${OWL.line}"/>` +
+    '<path stroke-width="1.2" d="M24.6 9.4H26.8L24.6 12H26.8M27.6 3.4H30.6L27.6 7H30.6"/>',
   /** A pencil, writing. */
   pencil:
     '<g transform="rotate(-40 16 16)"><path d="M11 13.6H25.6V18.4H11Z"/><path d="M11 13.6L5.6 16L11 18.4"/><path d="M22.6 13.6V18.4"/></g>' +
@@ -88,23 +104,38 @@ const ART = {
 export type ArtName = keyof typeof ART;
 
 /**
+ * Night is the dark theme, when the owl is up and working; day is the light theme, when it sleeps. Every
+ * quiet moment has both, and the theme shows one (.by-night, .by-day in global.css).
+ */
+export type Time = "night" | "day";
+export const TIMES: readonly Time[] = ["night", "day"];
+
+/**
  * Which drawings each moment picks from: `busy` while something loads, `empty` when a search finds
  * nothing, `lost` for a page that isn't there, `broken` for something that failed.
  */
 export const POOLS = {
-  busy: ["owl", "owl", "flying", "pencil", "book", "candle", "mug", "hourglass"],
-  empty: ["barn", "lens", "branch", "feather"],
-  lost: ["flying", "branch", "feather", "barn"],
-  broken: ["snapped", "ink", "knot"],
-} as const satisfies Record<string, readonly ArtName[]>;
+  night: {
+    busy: ["owl", "owl", "flying", "pencil", "book", "candle", "mug", "hourglass"],
+    empty: ["barn", "lens", "branch", "feather"],
+    lost: ["flying", "branch", "feather", "barn"],
+    broken: ["snapped", "ink", "knot"],
+  },
+  day: {
+    busy: ["asleep", "asleep", "mug", "book", "hourglass"],
+    empty: ["asleep", "lens", "branch", "feather"],
+    lost: ["asleep", "branch", "feather", "barn"],
+    broken: ["snapped", "ink", "knot", "mug"],
+  },
+} as const satisfies Record<Time, Record<string, readonly ArtName[]>>;
 
-export type Pool = keyof typeof POOLS;
+export type Pool = keyof (typeof POOLS)["night"];
 
 /**
- * One short line above a plain explanation, never instead of it. Deadpan, owlish, about working late on a
- * problem. Kept out of anything the reader needs to act on.
+ * One short line above a plain explanation, never instead of it. Deadpan, owlish: by night about working
+ * late on a problem, by day about an owl woken too early. Kept out of anything the reader needs to act on.
  */
-export const QUIPS = {
+const NIGHT_QUIPS = {
   busy: [
     "Thinking it over…",
     "Sharpening the pencil…",
@@ -131,9 +162,100 @@ export const QUIPS = {
   broken: ["Snapped the pencil.", "Spilt the ink.", "Got in a knot.", "That didn't add up."],
 } as const satisfies Record<Pool, readonly string[]>;
 
+const DAY_QUIPS = {
+  busy: [
+    "Waking the owl…",
+    "Rubbing its eyes…",
+    "Yawning. Nearly there…",
+    "Finding its spectacles…",
+    "Making the first coffee…",
+    "Reading last night's notes…",
+  ],
+  empty: [
+    "Slept through it. Nothing here.",
+    "Looked, half asleep. Nothing.",
+    "Not in this almanac. Yet.",
+    "Nothing, and too early to mind.",
+  ],
+  lost: [
+    "Sleepwalked off the page.",
+    "This page is still in bed.",
+    "Hoo? Ask again tonight.",
+    "Wrong branch. Too early.",
+  ],
+  broken: ["Dozed off mid-sum.", "Snapped the pencil before coffee.", "Spilt the coffee.", "Woke up in a knot."],
+} as const satisfies Record<Pool, readonly string[]>;
+
+/**
+ * The header's line under the site's name, on every page: what the owl is up to, by the theme (up at
+ * night, asleep by day, beside the mark's "z z"). One is picked per visit, so the site stays fresh; the
+ * first is what pages are built with. Same voice as the quips, and not about the sky. At most 46
+ * characters: one line on a wide screen, at most two beside the nav on a phone.
+ */
+export const HOURS = {
+  night: [
+    "The owl is up. Pull up a chair.",
+    "The owl is up, and the kettle's on.",
+    "Up and working. Mind the papers.",
+    "The owl is at its desk. Come in.",
+    "Wide awake, and halfway through a proof.",
+    "The owl is up. So, it seems, are you.",
+    "Night shift. The problems are open.",
+    "Burning the oil. There's plenty for two.",
+    "The owl is in. Something's being solved.",
+    "Awake, alert, and slightly over-caffeinated.",
+    "The owl is up, sharpening pencils.",
+    "Working hours: now.",
+    "The owl is up and the almanac is open.",
+    "Prime time for problems.",
+    "Eyes open, pencil out. Come in.",
+    "The owl is up, checking the working.",
+    "Another late one. Good company welcome.",
+    "Up past everyone's bedtime but yours.",
+    "The night's work has started. Join in.",
+    "Hoo's there? Come in, come in.",
+    "The owl is up. Mind the ink.",
+    "Fully nocturnal, fully caffeinated.",
+    "The candle's lit and the problems are waiting.",
+    "Quiet hours. Good for thinking.",
+  ],
+  day: [
+    "The owl is asleep. Read quietly.",
+    "The owl is asleep. Help yourself.",
+    "Asleep on the branch. Do read on.",
+    "The owl sleeps. The almanac doesn't.",
+    "Do not disturb. Reading allowed.",
+    "Asleep. Back after dark.",
+    "The owl is dreaming of tidy proofs.",
+    "Asleep mid-thought. Read on, softly.",
+    "Napping. The working is all on the page.",
+    "Off duty until dusk.",
+    "The owl is asleep. The kettle is cold.",
+    "Shh. Owl asleep, posts awake.",
+    "Sleeping off last night's problem.",
+    "The owl worked late. Let it sleep.",
+    "Asleep. The pencils are sharpened for later.",
+    "The owl keeps odd hours. The posts don't.",
+    "Resting its eyes. Read on.",
+    "The owl is asleep. Tiptoe through the posts.",
+    "Snoozing. Leave a problem by the door.",
+    "Asleep at the desk again.",
+    "Gone to roost. The posts stay up.",
+    "The owl is out cold. The code still runs.",
+    "Asleep. Everything here works without it.",
+    "Fast asleep, one ear on the search box.",
+  ],
+} as const satisfies Record<Time, readonly string[]>;
+
+export const QUIPS = { night: NIGHT_QUIPS, day: DAY_QUIPS } as const satisfies Record<
+  Time,
+  Record<Pool, readonly string[]>
+>;
+
 /** What a quip names, and the drawing that goes with it: first match wins. A new quip pairs itself by its words. */
 const ART_WORDS: ReadonlyArray<readonly [RegExp, ArtName]> = [
   [/owl looked|hoo\?/i, "barn"],
+  [/sleep|doz|yawn|\bbed\b|waking|eyes|spectacles/i, "asleep"],
   [/fl(y|ew|ight)|wing/i, "flying"],
   [/search|looked|nothing\b|no such/i, "lens"],
   [/pencil|working|snapped/i, "pencil"],
@@ -150,22 +272,22 @@ const ART_WORDS: ReadonlyArray<readonly [RegExp, ArtName]> = [
 const pick = <T>(list: readonly T[]): T => list[Math.floor(Math.random() * list.length)];
 
 /** The drawing a quip names, else `fallback`. A snapped pencil is the error's pencil; the plain one is for working. */
-export function artFor(quip: string, pool: Pool, fallback: ArtName): ArtName {
+export function artFor(quip: string, pool: Pool, fallback: ArtName, time: Time = "night"): ArtName {
   const named = ART_WORDS.find(([words]) => words.test(quip))?.[1];
   if (pool === "broken" && named === "pencil") return "snapped";
-  return named && (POOLS[pool] as readonly ArtName[]).includes(named) ? named : fallback;
+  return named && (POOLS[time][pool] as readonly ArtName[]).includes(named) ? named : fallback;
 }
 
 /** A quip and its drawing for a moment, picked at random: one per visit, so the site stays fresh. */
-export function quipFor(pool: Pool): { quip: string; art: ArtName } {
-  const quip = pick(QUIPS[pool]);
-  return { quip, art: artFor(quip, pool, pick(POOLS[pool])) };
+export function quipFor(pool: Pool, time: Time = "night"): { quip: string; art: ArtName } {
+  const quip = pick(QUIPS[time][pool]);
+  return { quip, art: artFor(quip, pool, pick(POOLS[time][pool]), time) };
 }
 
 /** The same, always the first: what the page is built with, before a script picks one at random. */
-export function firstQuip(pool: Pool): { quip: string; art: ArtName } {
-  const quip = QUIPS[pool][0];
-  return { quip, art: artFor(quip, pool, POOLS[pool][0]) };
+export function firstQuip(pool: Pool, time: Time = "night"): { quip: string; art: ArtName } {
+  const quip = QUIPS[time][pool][0];
+  return { quip, art: artFor(quip, pool, POOLS[time][pool][0], time) };
 }
 
 /** A drawing as a whole <svg>. `draw` has its lines draw themselves on, over and over (.art.drawing). */
