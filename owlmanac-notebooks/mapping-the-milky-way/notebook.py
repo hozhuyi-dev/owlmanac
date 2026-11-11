@@ -5,7 +5,7 @@ import marimo
 
 __generated_with = "0.25.2"
 app = marimo.App(
-    width="medium", app_title="Mapping the Milky Way", css_file="../notebook.css"
+    width="compact", app_title="Mapping the Milky Way", css_file="../notebook.css"
 )
 
 

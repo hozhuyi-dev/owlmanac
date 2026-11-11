@@ -30,7 +30,11 @@ const broken = QUIPS.broken;
     <meta name="description" content={description} />
     <meta name="author" content={AUTHOR} />
     <link rel="canonical" href={canonical} />
+    <!-- The SVG where it's shown, a PNG tile elsewhere: iOS shows no SVG favicon, and under /owlmanac/ the
+         browser's fallback /favicon.ico isn't ours (npm run icons). The PNG's sizes keep Chrome on the SVG. -->
+    <link rel="icon" type="image/png" sizes="96x96" href={url("favicon-96.png")} />
     <link rel="icon" type="image/svg+xml" href={url("favicon.svg")} />
+    <link rel="apple-touch-icon" href={url("apple-touch-icon.png")} />
     <link rel="alternate" type="application/rss+xml" title={SITE_TITLE} href={url("rss.xml")} />
     <link rel="sitemap" href={url("sitemap-index.xml")} />
     <meta property="og:type" content={title ? "article" : "website"} />

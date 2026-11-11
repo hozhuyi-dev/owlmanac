@@ -1,42 +1,34 @@
 ---
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { CollectionEntry } from "astro:content";
-import BaseLayout from "@/layouts/BaseLayout.astro";
-import NextRead from "@/components/site/NextRead.astro";
-import PostMeta from "@/components/site/PostMeta.astro";
-import SeriesNav from "@/components/site/SeriesNav.astro";
+import PostLayout from "@/layouts/PostLayout.astro";
+import { notebookHeadings } from "@/core/site/notebook-headings";
 import { artSvg } from "@/core/site/owl-art";
-import { getPosts } from "@/core/site/posts";
+import type { Post } from "@/core/site/posts";
 
-// A notebook post: the site's header and the post's title, then its marimo notebook (notebook/, a WASM
-// export served beside the page) at full width. The page and notebook share an origin, so the frame
-// grows to the notebook's height and the page scrolls as one.
+// A notebook post: a post (PostLayout) whose body is its marimo notebook, a WASM export served beside the
+// page (notebook/), in the post's column. Its contents are the export's headings. The page and notebook
+// share an origin, so the frame grows to the notebook's height and the page scrolls as one.
 interface Props {
-  post: CollectionEntry<"posts">;
+  post: Post;
 }
 
 const { post } = Astro.props;
-const posts = await getPosts();
-const { title, description, cover } = post.data;
 // The export is generated (npm run notebooks); without it the frame would load the site's own 404 page.
-const exported = existsSync(join(process.cwd(), "src/content/posts", post.id, "notebook", "index.html"));
+const exportPath = join(process.cwd(), "src/content/posts", post.id, "notebook", "index.html");
+const exported = existsSync(exportPath);
+const headings = exported ? notebookHeadings(readFileSync(exportPath, "utf8")) : [];
 const missing = import.meta.env.DEV
   ? "This notebook hasn't been exported yet: run npm run notebooks in owlmanac-web, then reload."
   : "This notebook couldn't be loaded. Try reloading the page.";
 ---
 
-<BaseLayout title={title} description={description} image={cover?.src}>
-  <header class="container">
-    <h1>{title}</h1>
-    <PostMeta post={post} extra="A notebook, run in your browser" />
-    <SeriesNav post={post} posts={posts} />
-  </header>
-  <p class="container notebook-missing figure-status failed" hidden={exported}>{missing}</p>
+<PostLayout post={post} headings={headings} meta="A notebook, run in your browser" within="iframe.notebook">
+  <p class="notebook-missing figure-status failed" hidden={exported}>{missing}</p>
   {
     exported && (
       <>
-        <iframe class="notebook" src="notebook/" title={title} />
+        <iframe class="notebook" src="notebook/" title={post.data.title} />
         <div class="notebook-toast" role="status" aria-live="polite" data-state="loading">
           <span class="owl" set:html={artSvg("owl", 28, { draw: true })} />
           <span class="text">Loading Python in your browser. The outputs are already here; inputs work once it's ready.</span>
@@ -44,10 +36,7 @@ const missing = import.meta.env.DEV
       </>
     )
   }
-  <div class="container">
-    <NextRead post={post} posts={posts} />
-  </div>
-</BaseLayout>
+</PostLayout>
 
 <script>
   import { owlMarkSvg } from "@/core/site/owl-art";
@@ -141,16 +130,8 @@ const missing = import.meta.env.DEV
 </script>
 
 <style>
-  header {
-    padding-top: var(--page-top);
-  }
-
-  h1 {
-    margin: 0;
-    font-size: clamp(2rem, 1.3rem + 2.8vw, 3rem);
-    line-height: 1.1;
-  }
-
+  /* The post's column; inside posts the notebook drops its own side padding (notebook.css), so its text
+     lines up with the title. */
   .notebook {
     display: block;
     width: 100%;

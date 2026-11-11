@@ -64,8 +64,10 @@ body {
   background: var(--site-bg);
 }
 
-/* Prose reads like the rest of the site: light body text, headings in the display serif. */
+/* Prose reads like the rest of the site (global.css .prose): its size, light body text, headings in the
+   display serif at the same sizes. */
 .markdown {
+  font-size: clamp(1rem, 0.95rem + 0.25vw, 1.0625rem);
   font-weight: 300;
   line-height: 1.75;
 }
@@ -76,7 +78,18 @@ body {
 .markdown h4 {
   font-family: var(--marimo-heading-font);
   font-weight: 500;
+  line-height: 1.2;
   letter-spacing: -0.01em;
+}
+
+.markdown h2 {
+  margin-top: 2em;
+  font-size: 1.65em;
+}
+
+.markdown h3 {
+  margin-top: 1.75em;
+  font-size: 1.3em;
 }
 
 .markdown strong {
@@ -97,6 +110,37 @@ input[type="range"] {
 }
 
 /*
+ * The frame is the post's column (44rem), and the notebook lines up with the post's title: it fills the
+ * column without the side padding marimo puts around it (px-1 up to xl:px-24), starts at the top without
+ * the room marimo keeps for its menu (sm:pt-8; the menu moves to the end, below), and prose cells drop
+ * their padding and borderless border, so their text starts where the title does. Code cells keep their
+ * box, which spans the column like a code block in a post.
+ */
+.in-post [class~="sm:px-16"] {
+  padding-inline: 0;
+}
+
+.in-post #App > [class~="sm:pt-8"] {
+  padding-top: 0;
+}
+
+.in-post .marimo-cell.borderless {
+  border-width: 0;
+}
+
+.in-post .marimo-cell.borderless .output-area {
+  padding-inline: 0;
+}
+
+.in-post .marimo-cell:first-child .output-area {
+  padding-top: 0;
+}
+
+.in-post .marimo-cell:first-child .markdown > :first-child {
+  margin-top: 0;
+}
+
+/*
  * The page's theme from the first paint (.site-dark, set by the export before marimo runs): the site's
  * tokens above follow color-scheme, so the notebook never flashes white in dark mode, and the frame's
  * scheme matches the page's, so the browser paints no backdrop behind it.
@@ -110,12 +154,31 @@ html.in-post.site-dark {
   color-scheme: dark;
 }
 
+/*
+ * marimo's floating outline is fixed to the frame, which is as tall as the notebook, so it would sit a
+ * quarter of the way down the notebook and never follow the page. The post shows the site's contents
+ * instead, read from the same headings. It has no test id: this matches its classes (marimo 0.25).
+ */
+.in-post [class~="fixed"][class~="top-[25vh]"] {
+  display: none;
+}
+
 .in-post .output-area {
   max-width: 100%;
   overflow-x: auto;
 }
 
-/* marimo's notebook menu (top right): an outline pill like the site's theme switch, not a grey tile. */
+/*
+ * marimo's notebook menu is fixed to the frame's top right, over the post's first line. The frame is as
+ * tall as the notebook, so in a post it goes to the notebook's end instead, beside the badge (below).
+ */
+.in-post [data-testid="notebook-actions-dropdown"] {
+  top: auto;
+  bottom: 1.5rem;
+  margin: 0;
+}
+
+/* marimo's notebook menu: an outline pill like the site's theme switch, not a grey tile. */
 [data-testid="notebook-actions-dropdown"] > button,
 [data-testid="notebook-actions-dropdown"] > button:hover {
   border: 1px solid var(--site-line);

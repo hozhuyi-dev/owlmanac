@@ -16,6 +16,7 @@ This README is the memory, for me and for AI assistants. Keep it short; record l
 ## Brand
 
 - **The mark** is a horned owl seen from behind, perched on a branch (`OWL` in `core/site/owl-art.ts`): filled in the header and the favicon, and the same owl as one continuous line that draws itself while something loads.
+- **Icons:** `public/favicon.svg` is the owl alone, inked for the system's theme. iOS shows no SVG favicon, so `npm run icons` draws PNGs from it (the owl in white on a charcoal tile): `favicon-96.png` for tabs and `apple-touch-icon.png` for the home screen. Rerun it when the mark changes.
 - **Drawings** for quiet moments are line art on a 32-unit grid, 1.5 stroke, round ends, in `currentColor` (`ART` in `owl-art.ts`): the owl in three poses (from behind, in flight, a barn owl facing you), and the night's work (pencil, book, candle, mug, hourglass, lens, feather, branch; a snapped pencil, spilt ink and a knot for errors). Muted, except an error's, in the danger colour.
 - **Quips** come in pools (`QUIPS`: busy, empty, lost, broken), deadpan and owlish, about working late on a problem; one is picked per visit, with the drawing it names. Not about the sky: the site isn't.
 - **Type:** Newsreader for the wordmark, titles and headings; Inter for body text; JetBrains Mono for code.
@@ -48,6 +49,7 @@ owlmanac-web/
   scripts/wasm.mjs            builds each WASM crate that names its out (npm run wasm)
   scripts/notebooks.mjs       exports notebook posts into their notebook/ (npm run notebooks)
   scripts/covers.mjs          runs each post's cover.mjs (npm run covers); shared helpers in cover-kit.mjs
+  scripts/icons.mjs           draws the PNG icons from public/favicon.svg (npm run icons)
   scripts/stamp.mjs           input hashes, so generators skip what hasn't changed
   scripts/check-posts.mjs     each post's README and size budgets (npm run check:posts)
   notebook-runtime/<version>/ marimo's frontend, shared by every notebook post on that version (not committed)
@@ -56,12 +58,13 @@ owlmanac-web/
   src/pages/                  routes only: home (the index), posts/[slug], about, rss.xml, 404
   src/layouts/                BaseLayout (<html>, header, footer, duotone filters, the visit's quips),
                               PostLayout (title, meta, series, contents, body, next read),
-                              NotebookLayout (the same header, then the notebook full width, grown to its height)
+                              NotebookLayout (a PostLayout whose body is the notebook, grown to its height)
   src/components/site/        the site's own: PostRow, PostCover, PostMeta, SeriesNav, NextRead,
                               TableOfContents, Quiet (drawing + quip + explanation), Resume, ThemeSwitch, Icon
   src/components/post/        what MDX uses across posts: Figure (numbered captions)
   src/core/site/              build time and browser: posts.ts (series, next read, topics), owl-art.ts (the mark,
-                              drawings, quips), url.ts (base-aware links)
+                              drawings, quips), url.ts (base-aware links), notebook-headings.ts (a notebook
+                              post's contents, read from its export)
   src/core/pdf/               browser: pdf-render.ts (pdf.js, loaded only by the resume)
   src/core/duckdb/            browser: duckdb.ts (one database per page, opened by the first query)
   src/core/plot/              browser: use-plot.ts (draw at the container's width), palette.ts (series colours)
@@ -99,6 +102,7 @@ cd owlmanac-web && npm run notebooks                    # export notebook posts 
 cd owlmanac-web && npm run wasm -- <crate>              # rebuild one crate's package; --force rebuilds all
 cd owlmanac-web && npm run notebooks -- <slug>          # re-export one notebook post; --force re-exports all
 cd owlmanac-web && npm run covers -- <slug>             # redraw one post's cover; no slug redraws all
+cd owlmanac-web && npm run icons                        # redraw the PNG icons after changing favicon.svg
 ```
 
 `npm run wasm` and `npm run notebooks` skip anything whose inputs haven't changed (a `.stamp` hash in each generated folder), so `npm run dev` starts quickly however many posts there are. Each post's own commands are in its `README.md`.
@@ -140,6 +144,8 @@ cd owlmanac-notebooks && uv run ruff check . && uv run ruff format --check . && 
 - Notebook posts are exported by `npm run notebooks`, which `npm run dev` and `npm run build` also run first, so both need uv. A draft's export is never copied into the build.
 - **marimo's frontend is shared, per version.** It's 30 MB, the same for every notebook, so it lives once in `notebook-runtime/<marimo version>/` and each export points there; a post keeps only its page, data and fonts (about 5 MB). marimo works out `mo.notebook_location()` from its Python worker's URL, so the runtime starts the worker from the page's `assets/` (a one-line module importing the real one); `npm run notebooks` patches that one URL and stops if a new marimo builds it differently.
 - **Upgrading marimo moves every notebook.** Bump the pin, re-export (`npm run notebooks -- --force`), and check each notebook post; the build publishes only the runtime versions posts use. A notebook that can't move yet stays behind with its own environment pinning the old marimo (PEP 723), pointing at the old version's runtime: built when first needed.
+- **A notebook post is laid out as any post.** Title, contents, cover, then the notebook in the post's column (44rem) in place of the prose. Inside posts, `notebook.css` lines the notebook up with the title: no side padding around marimo's column, no room above it, prose cells without padding, the site's prose sizes, and marimo's menu moved to the notebook's end beside its badge. These rules match marimo's classes, so check them after a marimo upgrade.
+- **A notebook post has the site's contents, not marimo's outline.** Inside a frame grown to the notebook's height, marimo's floating outline is fixed to the frame, so it would sit partway down the notebook and never follow the page. `notebook.css` hides it in posts (matched by its classes; check it after a marimo upgrade). `NotebookLayout` reads the h2s and h3s, with their ids, from the export's embedded outputs at build time, so the contents are there on first paint. `TableOfContents` finds those headings inside the frame, and scrolls the page to them, including for a `#section` in the address.
 - **A notebook frame shows once it has painted.** Until then the browser shows the frame's blank first document, backed with white on a dark page, so the frame stays transparent (keeping its size) until the export marks it `data-painted`.
 
 ## Later, only when needed
@@ -149,7 +155,6 @@ cd owlmanac-notebooks && uv run ruff check . && uv run ruff format --check . && 
 - Comments: giscus (GitHub Discussions), no backend.
 - Full-text search (Pagefind) once titles, descriptions and topics aren't enough to find a post (around 30–50 posts). Drive it from the existing search box and rows; a notebook post is an iframe, so index its prose separately.
 - The home page lists every post, filtered in the browser; no pagination, which would hide posts from the search. Past about 300 posts, render the newest and load the rest from a JSON index on first search.
-- A notebook post's contents bar, read from the notebook's headings (same origin).
 
 ## Now
 

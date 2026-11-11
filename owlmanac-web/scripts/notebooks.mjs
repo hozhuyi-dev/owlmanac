@@ -84,6 +84,9 @@ for (const slug of readdirSync(posts)) {
   const index = join(out, "index.html");
   const html = readFileSync(index, "utf8")
     .replace("<head>", `<head>\n${inPost()}`)
+    // marimo preloads two background images (noise, gradient) that only its editor shows, when
+    // disconnected; a notebook post never uses them, and the browser warns that they went unused.
+    .replace(/<link rel="preload" href="[^"]*" as="image" \/>\r?\n?/g, "")
     .replace(/(["'(])\.\/assets\//g, `$1${runtimeUrl}`);
   writeFileSync(index, html);
   writeFileSync(join(out, ".runtime"), marimo); // which runtime it needs, for the build

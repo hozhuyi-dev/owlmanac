@@ -9,6 +9,7 @@
     "wasm": "node scripts/wasm.mjs",
     "notebooks": "node scripts/notebooks.mjs",
     "covers": "node scripts/covers.mjs",
+    "icons": "node scripts/icons.mjs",
     "check:posts": "node scripts/check-posts.mjs",
     "predev": "npm run wasm && npm run notebooks",
     "dev": "astro dev",

@@ -9,26 +9,31 @@ import TableOfContents from "@/components/site/TableOfContents.astro";
 import { getPosts, readingTime, type Post } from "@/core/site/posts";
 
 // A post: its title and meta, then its contents (a column beside the post on wide screens, a sticky bar
-// under the title on a phone), the cover and body, and what to read next.
+// under the title on a phone), the cover and body, and what to read next. A notebook post is laid out
+// the same, its notebook in the body's place (NotebookLayout).
 interface Props {
   post: Post;
   headings: MarkdownHeading[];
+  /** After the date: the reading time, or what kind of post it is. */
+  meta?: string;
+  /** What the contents cover: see TableOfContents. */
+  within?: string;
 }
 
-const { post, headings } = Astro.props;
+const { post, headings, meta = readingTime(post.body ?? ""), within } = Astro.props;
 const posts = await getPosts();
-const { title, description, cover, coverAlt, coverCredit } = post.data;
+const { title, description, cover, coverAlt, coverCredit, notebook } = post.data;
 ---
 
 <BaseLayout title={title} description={description} image={cover?.src}>
   <div class="container layout">
     <header class="post-head">
       <h1>{title}</h1>
-      <PostMeta post={post} extra={readingTime(post.body ?? "")} />
+      <PostMeta post={post} extra={meta} />
       <SeriesNav post={post} posts={posts} />
     </header>
     <aside class="contents">
-      <TableOfContents headings={headings} />
+      <TableOfContents headings={headings} within={within} />
     </aside>
     <article>
       {
@@ -39,9 +44,15 @@ const { title, description, cover, coverAlt, coverCredit } = post.data;
           </figure>
         )
       }
-      <div class="prose">
-        <slot />
-      </div>
+      {
+        notebook ? (
+          <slot />
+        ) : (
+          <div class="prose">
+            <slot />
+          </div>
+        )
+      }
       <NextRead post={post} posts={posts} />
     </article>
   </div>

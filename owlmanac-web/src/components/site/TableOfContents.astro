@@ -6,10 +6,14 @@ import type { MarkdownHeading } from "astro";
 // Either way it marks the section being read.
 interface Props {
   headings: MarkdownHeading[];
+  /** What the contents cover, for the bar's progress: the post's <article>, or a notebook's <iframe>,
+      whose headings are then found inside it (it shares the page's origin, and the page scrolls it). */
+  within?: string;
 }
 
+const { headings, within = "article" } = Astro.props;
 const sections: (MarkdownHeading & { children: MarkdownHeading[] })[] = [];
-for (const heading of Astro.props.headings) {
+for (const heading of headings) {
   if (heading.depth === 2) sections.push({ ...heading, children: [] });
   else if (heading.depth === 3) sections.at(-1)?.children.push(heading);
 }
@@ -17,7 +21,7 @@ for (const heading of Astro.props.headings) {
 
 {
   sections.length > 0 && (
-    <nav class="toc" aria-label="On this page">
+    <nav class="toc" aria-label="On this page" data-within={within}>
       <h2 class="eyebrow">On this page</h2>
       <ul>
         {sections.map((section) => (
@@ -53,11 +57,17 @@ for (const heading of Astro.props.headings) {
   // through the list, or swing the phone's bar. Once the page is still: if the heading landed near the top
   // it stays current until the reader scrolls (a short section near the end stops below the reading line,
   // and shouldn't hand over to the last one); if the reader cut the jump short, reading resumes there.
+  //
+  // A notebook's headings are inside its frame, which the page scrolls (it's grown to the notebook's
+  // height). They're found there as the notebook renders, measured from the frame's top, and jumped to by
+  // scrolling the page; the browser can't follow a link to them by itself, so this does on load and Back.
   const toc = document.querySelector<HTMLElement>(".toc");
   const list = toc?.querySelector<HTMLElement>(":scope > ul");
   const progress = toc?.querySelector<HTMLElement>(".progress");
   const links = [...(toc?.querySelectorAll<HTMLAnchorElement>("a") ?? [])];
-  const targets = links.map((link) => document.getElementById(decodeURIComponent(link.hash.slice(1))));
+  const ids = links.map((link) => decodeURIComponent(link.hash.slice(1)));
+  const body = toc ? document.querySelector<HTMLElement>(toc.dataset.within!) : null;
+  const notebook = body instanceof HTMLIFrameElement ? body : null;
   const bar = matchMedia("(max-width: 63.99rem)");
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
   // How long the page must be still before a jump counts as landed.
@@ -67,6 +77,25 @@ for (const heading of Astro.props.headings) {
   let jumpedTo: HTMLElement | null = null;
   let settle = 0;
 
+  /** A link's heading: in the page, or in the notebook's frame once it has rendered. */
+  function target(i: number): HTMLElement | null {
+    return (notebook ? notebook.contentDocument : document)?.getElementById(ids[i]) ?? null;
+  }
+
+  /** Where a heading is on the screen. */
+  function top(heading: HTMLElement): number {
+    return heading.getBoundingClientRect().top + (notebook?.getBoundingClientRect().top ?? 0);
+  }
+
+  /** Scrolls a heading to the top of the screen, below what sticks there. */
+  function scrollToHeading(heading: HTMLElement, smooth: boolean) {
+    const behavior = smooth && !reduceMotion.matches ? "smooth" : "auto";
+    if (!notebook) return heading.scrollIntoView({ behavior, block: "start" });
+    // The page's scroll-padding-top, which scrollIntoView would have kept clear.
+    const clear = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+    window.scrollTo({ top: scrollY + top(heading) - clear, behavior });
+  }
+
   /** The current heading: the last one above a line a quarter of the way down the screen. */
   function reading(): HTMLAnchorElement | undefined {
     // Short last sections never scroll up to that line, so over the last stretch of the page the line
@@ -75,8 +104,9 @@ for (const heading of Astro.props.headings) {
     const left = document.documentElement.scrollHeight - innerHeight - scrollY;
     const line = innerHeight / 4 + stretch * Math.max(0, 1 - left / stretch);
     let current = -1;
-    targets.forEach((target, i) => {
-      if (target && target.getBoundingClientRect().top <= line) current = i;
+    links.forEach((_, i) => {
+      const heading = target(i);
+      if (heading && top(heading) <= line) current = i;
     });
     return links[current];
   }
@@ -108,9 +138,8 @@ for (const heading of Astro.props.headings) {
 
   /** How far through the post, along the phone bar's foot. It follows every scroll, jumps included. */
   function showProgress() {
-    const article = document.querySelector("article");
-    if (!bar.matches || !article || !progress) return;
-    const box = article.getBoundingClientRect();
+    if (!bar.matches || !body || !progress) return;
+    const box = body.getBoundingClientRect();
     progress.style.transform = `scaleX(${Math.min(1, Math.max(0, (innerHeight / 2 - box.top) / box.height))})`;
   }
 
@@ -125,29 +154,59 @@ for (const heading of Astro.props.headings) {
     clearTimeout(settle);
     settle = window.setTimeout(() => {
       jumping = false;
-      const top = jumpedTo?.getBoundingClientRect().top ?? -Infinity;
-      if (top < -1 || top > innerHeight / 2) update();
+      const landed = jumpedTo ? top(jumpedTo) : -Infinity;
+      if (landed < -1 || landed > innerHeight / 2) update();
     }, SETTLE_MS);
+  }
+
+  /** Jumps to a link's heading, marking it current on the way. */
+  function jump(i: number, smooth: boolean): boolean {
+    const heading = target(i);
+    if (!heading) return false;
+    jumping = true;
+    jumpedTo = heading;
+    mark(links[i]);
+    scrollToHeading(heading, smooth);
+    holdUntilStill();
+    return true;
+  }
+
+  /** In a notebook, follows the address's #section, which the browser can't find in the frame. */
+  function followHash(smooth: boolean): boolean {
+    const i = ids.indexOf(decodeURIComponent(location.hash.slice(1)));
+    return i >= 0 && jump(i, smooth);
   }
 
   if (toc) {
     for (const [i, link] of links.entries()) {
       link.addEventListener("click", (event) => {
-        const target = targets[i];
-        if (!target) return;
+        if (!target(i)) return;
         event.preventDefault();
-        jumping = true;
-        jumpedTo = target;
-        mark(link);
         history.pushState(null, "", link.hash);
-        target.scrollIntoView({ behavior: reduceMotion.matches ? "auto" : "smooth", block: "start" });
-        holdUntilStill();
+        jump(i, true);
       });
     }
     const schedule = () => (frame ||= requestAnimationFrame(update));
     addEventListener("scroll", () => (jumping && holdUntilStill(), schedule()), { passive: true });
     addEventListener("resize", schedule);
+    if (notebook) followNotebook(notebook, schedule);
     update();
+  }
+
+  /**
+   * A notebook grows as it renders, which moves its headings without a scroll. Opened at a #section, the
+   * page follows that heading as the notebook grows above it, until the reader takes over or it settles.
+   */
+  function followNotebook(notebook: HTMLIFrameElement, schedule: () => void) {
+    let following = location.hash.length > 1;
+    const stop = () => (following = false);
+    for (const type of ["wheel", "touchstart", "keydown", "pointerdown"]) addEventListener(type, stop, { once: true, passive: true });
+    setTimeout(stop, 10_000);
+    new ResizeObserver(() => {
+      if (following) followHash(false);
+      schedule();
+    }).observe(notebook);
+    addEventListener("popstate", () => followHash(true));
   }
 </script>
 
