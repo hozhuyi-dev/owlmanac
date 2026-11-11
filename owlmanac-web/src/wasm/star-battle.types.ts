@@ -17,7 +17,7 @@ export type Solutions = { found: Cell[][]; complete: boolean };
 // Rust's `None` arrives as `undefined` (serde-wasm-bindgen's default), never `null`.
 
 /** `depth` is undefined when a cell needs deeper reasoning than the grader tries. */
-export type Grade = { depth?: number; deepestSteps: number };
+export type Grade = { depth?: number; length: number; deepestSteps: number };
 export type LearnedRule = { cannotAllHold: Placed[]; lbd: number };
 /** A cell the player can work out next, and how many "what if"s deep the reasoning goes. */
 export type Hint = { placed: Placed; depth: number };

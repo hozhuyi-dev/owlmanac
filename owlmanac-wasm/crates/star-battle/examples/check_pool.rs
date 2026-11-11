@@ -1,5 +1,5 @@
 // Checks a pool written by the `pool` binary: every puzzle has one solution and connected regions,
-// sits in the right level, and appears only once. Usage: check_pool <folder with easy.json, hard.json>
+// sits in the right level, and appears only once. Usage: check_pool <folder with easy.json, medium.json, hard.json>
 use star_battle::{Board, Puzzle, Session};
 use std::collections::BTreeSet;
 use std::{env, fs};
@@ -36,7 +36,7 @@ fn connected(regions: &[usize], size: usize) -> bool {
 fn main() {
     let folder = env::args().nth(1).expect("usage: check_pool <folder>");
     let mut all = BTreeSet::new();
-    for level in ["easy", "hard"] {
+    for level in ["easy", "medium", "hard"] {
         let text = fs::read_to_string(format!("{folder}/{level}.json")).unwrap();
         let puzzles: Vec<&str> = text
             .lines()
@@ -56,11 +56,12 @@ fn main() {
             let puzzle = Puzzle::new(10, 2, cells.clone()).unwrap();
             let session = Session::new(puzzle);
             let found = session.solutions(&Board::new(), 2);
-            let depth = session.grade(&Board::new()).unwrap().depth;
-            // `None` (deeper than the grader goes) sorts before every `Some`, so say both cases outright.
-            let right_level = match depth {
-                Some(depth) => (depth <= 1) == (level == "easy"),
-                None => level == "hard",
+            let grade = session.grade(&Board::new()).unwrap();
+            // As the pool binary grades: Easy chains clash within 2 rounds, Medium's run longer.
+            let right_level = match grade.depth {
+                Some(0 | 1) if grade.length <= 2 => level == "easy",
+                Some(0 | 1) => level == "medium",
+                _ => level == "hard",
             };
             if found.found.len() != 1
                 || !found.complete

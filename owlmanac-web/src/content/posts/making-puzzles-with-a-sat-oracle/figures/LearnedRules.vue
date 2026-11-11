@@ -5,7 +5,8 @@ import { oracle } from "../engine/client";
 import { ROWS, SIZE, STARS, regionsOf } from "../engine/strategies";
 import RegionGrid from "../grid/RegionGrid.vue";
 
-// The first Easy and the first Hard puzzle made by choosing the stars first.
+// The first Easy and the first Hard puzzle made by choosing the stars first. The first at depth 1
+// has chains of at most 2 rounds, so it's Easy, not Medium.
 const LIMIT = 1000;
 const picks = [
   { level: "Easy", row: ROWS.find((row) => row.strategy === "aroundStars" && row.depth === 1)! },

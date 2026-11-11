@@ -48,6 +48,13 @@ const ready = computed(() => game.puzzle.value !== undefined && !game.loading.va
 // Until the first puzzle is in, or while the next one comes, the owl works over the board.
 const waiting = computed(() => !ready.value && !game.loadingError.value);
 
+// In a narrow figure, a level's name is cut to `short` (the rest hides with `.long`).
+const LEVELS: { level: Level; short: string; rest: string }[] = [
+  { level: "easy", short: "Easy", rest: "" },
+  { level: "medium", short: "Med", rest: "ium" },
+  { level: "hard", short: "Hard", rest: "" },
+];
+
 const SYMBOLS: Record<number, string> = { 0: "", 1: "★", [-1]: "×" };
 const LABELS: Record<number, string> = { 0: "unmarked", 1: "star", [-1]: "ruled out" };
 
@@ -74,20 +81,20 @@ const lines = computed(() => {
     <div class="chart-controls toolbar">
       <div class="levels" role="radiogroup" aria-label="Level">
         <button
-          v-for="level in (['easy', 'hard'] as Level[])"
+          v-for="{ level, short, rest } in LEVELS"
           :key="level"
           type="button"
           role="radio"
           :aria-checked="game.level.value === level"
           @click="choose(level)"
         >
-          {{ level === "easy" ? "Easy" : "Hard" }}
+          {{ short }}<span class="long">{{ rest }}</span>
         </button>
       </div>
       <button type="button" @click="choose(game.level.value)">New<span class="long"> puzzle</span></button>
       <button type="button" :disabled="!ready" @click="game.askHint">Hint</button>
       <button type="button" :aria-pressed="askingWhy" :disabled="!ready" @click="askingWhy = !askingWhy">
-        Ask why
+        <span class="long">Ask why</span><span class="short">Why?</span>
       </button>
       <button type="button" :disabled="!ready" @click="game.clear">Clear</button>
     </div>
@@ -142,8 +149,11 @@ const lines = computed(() => {
   border-radius: 0.375rem 0 0 0.375rem;
 }
 
-.levels button:last-child {
+.levels button + button {
   border-left: 0;
+}
+
+.levels button:last-child {
   border-radius: 0 0.375rem 0.375rem 0;
 }
 
@@ -154,7 +164,8 @@ const lines = computed(() => {
 }
 
 /* Every control on one row, at any width. In a narrow figure (a phone) each is a thumb's height, they share
-   the width, and "New puzzle" is "New". Measured on the figure, not the screen. */
+   the width, and the long labels are cut: "New puzzle" is "New", "Medium" is "Med", "Ask why" is "Why?".
+   Measured on the figure, not the screen. */
 .game {
   container-type: inline-size;
 }
@@ -168,6 +179,10 @@ const lines = computed(() => {
   white-space: nowrap;
 }
 
+.short {
+  display: none;
+}
+
 @container (max-width: 30rem) {
   .toolbar {
     gap: 0.375rem;
@@ -177,7 +192,7 @@ const lines = computed(() => {
   .toolbar button {
     flex: 1 1 auto;
     min-height: 2.5rem;
-    padding: 0.3rem 0.35rem;
+    padding: 0.3rem 0.2rem;
   }
 
   .toolbar .levels {
@@ -186,6 +201,10 @@ const lines = computed(() => {
 
   .long {
     display: none;
+  }
+
+  .short {
+    display: inline;
   }
 }
 

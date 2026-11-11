@@ -1,4 +1,4 @@
-//! Makes the game's puzzle pool: 10×10 two-star puzzles with one solution, graded Easy or Hard,
+//! Makes the game's puzzle pool: 10×10 two-star puzzles with one solution, graded Easy, Medium or Hard,
 //! no two alike, written as one JSON file per level. Run with:
 //!
 //! `cargo run --release -p star-battle --bin pool -- <puzzles per level> <output folder>`
@@ -6,7 +6,7 @@
 //! Seeds are handed out in fixed batches and the results sorted by seed, so the same arguments
 //! always give the same files, however the threads happen to be scheduled.
 
-use star_battle::{Board, Puzzle, Session, Strategy, generate};
+use star_battle::{Board, Grade, Puzzle, Session, Strategy, generate};
 use std::collections::BTreeSet;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -15,25 +15,34 @@ use std::{env, fs, process};
 const SIZE: usize = 10;
 const STARS: usize = 2;
 const SEEDS_PER_BATCH: u64 = 512;
+/// The longest "what if" chain an Easy puzzle needs, in rounds of forced moves. At 2, the pool's
+/// depth-1 puzzles split about 60:40 between Easy and Medium.
+const EASY_LENGTH: u32 = 2;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 enum Level {
     Easy,
+    Medium,
     Hard,
 }
+
+const LEVELS: [Level; 3] = [Level::Easy, Level::Medium, Level::Hard];
 
 impl Level {
     fn name(self) -> &'static str {
         match self {
             Level::Easy => "easy",
+            Level::Medium => "medium",
             Level::Hard => "hard",
         }
     }
 
-    /// Easy needs at most one "what if" at a time; Hard needs a trial inside a trial, or more.
-    fn of(depth: Option<u32>) -> Level {
-        match depth {
-            Some(depth) if depth <= 1 => Level::Easy,
+    /// Easy needs at most one "what if" at a time, each clashing within `EASY_LENGTH` rounds;
+    /// Medium needs a longer chain; Hard needs a trial inside a trial, or more.
+    fn of(grade: Grade) -> Level {
+        match grade.depth {
+            Some(depth) if depth <= 1 && grade.length <= EASY_LENGTH => Level::Easy,
+            Some(depth) if depth <= 1 => Level::Medium,
             _ => Level::Hard,
         }
     }
@@ -56,9 +65,9 @@ fn main() {
         made.sort();
         let pools = pick(&made, per_level);
         let counts: Vec<usize> = pools.iter().map(Vec::len).collect();
-        eprintln!("seeds 0..{first_seed}: {counts:?} unique puzzles (easy, hard)");
+        eprintln!("seeds 0..{first_seed}: {counts:?} unique puzzles (easy, medium, hard)");
         if counts.iter().all(|&count| count >= per_level) {
-            for (level, puzzles) in [Level::Easy, Level::Hard].into_iter().zip(pools) {
+            for (level, puzzles) in LEVELS.into_iter().zip(pools) {
                 write(folder, level, &puzzles);
             }
             return;
@@ -84,7 +93,7 @@ fn make_batch(first_seed: u64, threads: usize) -> Vec<(u64, Level, String)> {
                         .expect("generated puzzles have a solution");
                     made.lock()
                         .unwrap()
-                        .push((seed, Level::of(grade.depth), canonical(&puzzle)));
+                        .push((seed, Level::of(grade), canonical(&puzzle)));
                 }
             });
         }
@@ -93,9 +102,9 @@ fn make_batch(first_seed: u64, threads: usize) -> Vec<(u64, Level, String)> {
 }
 
 /// The first `per_level` puzzles of each level in seed order, skipping any already seen.
-fn pick(made: &[(u64, Level, String)], per_level: usize) -> [Vec<String>; 2] {
+fn pick(made: &[(u64, Level, String)], per_level: usize) -> [Vec<String>; 3] {
     let mut seen = BTreeSet::new();
-    let mut pools = [Vec::new(), Vec::new()];
+    let mut pools = [Vec::new(), Vec::new(), Vec::new()];
     for (_, level, regions) in made {
         let pool = &mut pools[*level as usize];
         if pool.len() < per_level && seen.insert(regions.clone()) {

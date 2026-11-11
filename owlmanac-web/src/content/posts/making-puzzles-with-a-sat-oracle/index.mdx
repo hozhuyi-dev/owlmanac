@@ -1,6 +1,6 @@
 ---
 title: "Making Puzzles with a SAT Oracle"
-description: "A good puzzle has exactly one answer. Proving there isn't a second one is the solver's real job. Here's how 4,000 Star Battle puzzles were made, and graded."
+description: "A good puzzle has exactly one answer. Proving there isn't a second one is the solver's real job. Here's how 6,000 Star Battle puzzles were made, and graded."
 pubDate: 2026-11-10T09:00:00Z
 cover: ./cover.png
 coverAlt: "A 10×10 Star Battle grid with coloured regions, its chosen stars, and hollow stars marking a second solution still to be ruled out"
@@ -16,7 +16,7 @@ import LiveGenerator from "./figures/LiveGenerator.vue";
 import StrategyCharts from "./figures/StrategyCharts.vue";
 import LearnedRules from "./figures/LearnedRules.vue";
 
-In the [last post](../from-brute-force-to-cdcl/) I built a SAT solver and pointed it at puzzles someone else had made. This time it makes them. The Star Battle game in the next post needed 4,000 puzzles, half of them Easy and half Hard, and I wasn't going to draw them by hand.
+In the [last post](../from-brute-force-to-cdcl/) I built a SAT solver and pointed it at puzzles someone else had made. This time it makes them. The Star Battle game in the next post needed 6,000 puzzles, a third each Easy, Medium and Hard, and I wasn't going to draw them by hand.
 
 Star Battle is played on a grid split into regions. Each row, each column and each region holds the same number of stars, two on the 10×10 grids here, and no two stars may touch, not even at a corner. Making one sounds easy: draw some regions. The catch is that a puzzle is only any good if it has exactly one solution.
 
@@ -58,11 +58,15 @@ For puzzles made of clues, like Sudoku, there's a fourth way that *is* elegant a
 
 ## How hard is it?
 
-The game needs Easy and Hard levels, so every puzzle has to be graded. The obvious measure is how hard the solver had to work. But the last post showed that depends on the solver as much as the puzzle: switching on phase saving tripled the dead ends on one Sudoku.
+The game needs Easy, Medium and Hard levels, so every puzzle has to be graded. The obvious measure is how hard the solver had to work. But the last post showed that depends on the solver as much as the puzzle: switching on phase saving tripled the dead ends on one Sudoku.
 
-So I grade by how far ahead a person would have to think. **Depth 0** means forced moves alone solve it: every step is "this is the only place left". **Depth 1** allows one "what if": "if I put a star here, the forced moves run into a contradiction, so it can't go here". **Depth 2** allows a "what if" inside a "what if". Of the 600 puzzles in the chart above, all but one need depth 1 or 2 (the odd one out, from random regions, needs more), so Easy is depth 1 and Hard is depth 2. The grader only uses forced moves and trials, never the solver's search, so its answer doesn't depend on any heuristic.
+So I grade by how far ahead a person would have to think. **Depth 0** means forced moves alone solve it: every step is "this is the only place left". **Depth 1** allows one "what if": "if I put a star here, the forced moves run into a contradiction, so it can't go here". **Depth 2** allows a "what if" inside a "what if". Of the 600 puzzles in the chart above, all but one need depth 1 or 2 (the odd one out, from random regions, needs more), so depth 2 is Hard.
 
-The solver feels the difference too. Across the 200 puzzles made by choosing the stars first, it learns a median of 32 clauses solving an Easy one, and 74 solving a Hard one. Each learnt clause is a new rule about that particular grid, "these can't all be true at once". Here they are for one Easy and one Hard puzzle.
+Depth alone lumps together very different depth-1 puzzles, though. A "what if" is played out in your head, so what matters is how far you have to follow it. I count that in **rounds**: round 1 is every move the trial forces outright, round 2 is every move those force, and so on, until a rule breaks. "A star here leaves that region no room" breaks in round 1. Six rounds means holding six looks at an imagined board. A player takes the easiest step on offer, so the grader does too: at each point it takes the shortest chain it can find, and a puzzle's **length** is the longest of those it can't avoid. In the pool, depth-1 puzzles split about 60:40 at length 2, so Easy is depth 1 with chains of at most two rounds, and Medium is depth 1 with longer ones.
+
+The grader only uses forced moves and trials, never the solver's search, and it plays out the forced moves itself, so its answer doesn't depend on any heuristic.
+
+The solver feels the difference too, though mostly the depth. Across the 200 puzzles made by choosing the stars first, it learns a median of 28 clauses solving an Easy one, 37 solving a Medium one, and 74 solving a Hard one. A long chain of forced moves costs the solver almost nothing: what's hard is holding it in your head. Each learnt clause is a new rule about that particular grid, "these can't all be true at once". Here they are for one Easy and one Hard puzzle.
 
 <Figure caption="The rules the solver learns while solving each puzzle. ★ means a star and × means no star; a rule's marks can't all be true together.">
   <LearnedRules client:visible />
@@ -74,4 +78,4 @@ Strong Star Battle players use counting. "These three regions sit entirely insid
 
 ## Next
 
-All 4,000 are in the [next post](../star-battle/), with the solver standing by to help.
+All 6,000 are in the [next post](../star-battle/), with the solver standing by to help.

@@ -1,16 +1,17 @@
 import easyUrl from "../data/easy.json?url";
+import mediumUrl from "../data/medium.json?url";
 import hardUrl from "../data/hard.json?url";
 import type { Puzzle } from "@/wasm/star-battle.types";
 
 // The puzzle pool, from star-battle's `pool` binary. Each level's file is fetched only when that
 // level is first played, and the puzzles a reader has played are remembered in their browser.
 
-export type Level = "easy" | "hard";
+export type Level = "easy" | "medium" | "hard";
 export type PoolPuzzle = Puzzle & { level: Level; index: number };
 
 type PoolFile = { size: number; stars: number; level: Level; puzzles: string[] };
 
-const URLS: Record<Level, string> = { easy: easyUrl, hard: hardUrl };
+const URLS: Record<Level, string> = { easy: easyUrl, medium: mediumUrl, hard: hardUrl };
 const loaded = new Map<Level, Promise<PoolFile>>();
 
 function load(level: Level): Promise<PoolFile> {

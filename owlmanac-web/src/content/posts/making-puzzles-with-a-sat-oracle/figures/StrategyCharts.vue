@@ -40,9 +40,9 @@ usePlot(timeEl, (width) =>
   }),
 );
 
-// Easy and Hard as two segments of one bar per strategy, adding to 100%.
+// Easy or Medium (depth 1) and Hard (depth 2) as two segments of one bar per strategy, adding to 100%.
 const segments = SUMMARIES.flatMap((row) => [
-  { label: row.label, level: "Easy", share: row.easy },
+  { label: row.label, level: "Easy or Medium", share: row.easy },
   { label: row.label, level: "Hard", share: row.hard },
 ]);
 
@@ -54,7 +54,7 @@ usePlot(levelEl, (width) =>
     marginRight: 50,
     x: { label: "Share of puzzles (%)", domain: [0, 100], grid: true },
     y: { label: null, domain: SUMMARIES.map((row) => row.label) },
-    color: { domain: ["Easy", "Hard"], range: [EASY_COLOUR, HARD_COLOUR] },
+    color: { domain: ["Easy or Medium", "Hard"], range: [EASY_COLOUR, HARD_COLOUR] },
     marks: [
       Plot.barX(segments, Plot.stackX({ x: "share", y: "label", fill: "level", stroke: "var(--bg)", strokeWidth: 2 })),
       Plot.tip(
@@ -70,7 +70,7 @@ usePlot(levelEl, (width) =>
   <div class="charts">
     <div ref="timeEl" class="chart" :style="{ '--chart-height': `${HEIGHT}px` }" />
     <ul class="chart-legend" aria-label="Levels">
-      <li><span class="key" :style="{ background: EASY_COLOUR }" />Easy</li>
+      <li><span class="key" :style="{ background: EASY_COLOUR }" />Easy or Medium</li>
       <li><span class="key" :style="{ background: HARD_COLOUR }" />Hard</li>
     </ul>
     <div ref="levelEl" class="chart" :style="{ '--chart-height': `${HEIGHT}px` }" />
@@ -83,7 +83,7 @@ usePlot(levelEl, (width) =>
             <th scope="col">Puzzles</th>
             <th scope="col">Median time</th>
             <th scope="col">Median designs tried</th>
-            <th scope="col">Easy</th>
+            <th scope="col">Easy or Medium</th>
             <th scope="col">Hard</th>
           </tr>
         </thead>

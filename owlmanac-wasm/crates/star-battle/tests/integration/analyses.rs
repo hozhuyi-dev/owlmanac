@@ -1,6 +1,9 @@
 //! Each analysis on puzzles whose single solution is known.
 
-use super::support::{Fixture, every_fixture, five_by_five, star, ten_by_ten_two_stars, touching};
+use super::support::{
+    Fixture, eight_by_eight_two_stars, every_fixture, five_by_five, star, ten_by_ten_two_stars,
+    touching,
+};
 use star_battle::{Board, Cell, Chain, Mark, Placed, Puzzle, Rule, Session, WhyNot};
 use std::collections::BTreeSet;
 
@@ -251,14 +254,13 @@ fn an_impossible_puzzle_has_no_solutions_and_says_so() {
 
 #[test]
 fn the_fixtures_grade_as_measured() {
-    let depth = |fixture: Fixture| {
-        Session::new(fixture.puzzle)
-            .grade(&Board::new())
-            .unwrap()
-            .depth
+    let grade = |fixture: Fixture| {
+        let grade = Session::new(fixture.puzzle).grade(&Board::new()).unwrap();
+        (grade.depth, grade.length)
     };
-    assert_eq!(depth(five_by_five()), Some(0));
-    assert_eq!(depth(ten_by_ten_two_stars()), Some(1));
+    assert_eq!(grade(five_by_five()), (Some(0), 0));
+    assert_eq!(grade(eight_by_eight_two_stars()), (Some(1), 1));
+    assert_eq!(grade(ten_by_ten_two_stars()), (Some(1), 2));
 }
 
 #[test]
